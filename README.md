@@ -17,9 +17,13 @@ code/
   experiments/  produce the raw CSVs from the UCI datasets
   analysis/     turn raw CSVs into the paper's tables and figures
   audit/        re-derive every printed number and re-resolve every citation
-manuscript/   LaTeX source, so the audit scripts have something to check
 requirements.txt
 ```
+
+The LaTeX manuscript is kept separately and is not part of this repository.
+The `audit/` scripts that read the paper source (`verify_tables.py`,
+`check_dois.py`, `check_authors.py`) look for it at `GRC_MANUSCRIPT`; point
+that at a local checkout of the manuscript to run them.
 
 ## Quick start
 
@@ -27,23 +31,18 @@ requirements.txt
 pip install -r requirements.txt
 
 # 1. Regenerate every table in the paper from the raw data
-python3 code/analysis/gen_tables.py          # writes manuscript/tables/*.tex
+python3 code/analysis/gen_tables.py          # writes tables/*.tex in the CWD
 
-# 2. Check the manuscript against the raw data
+# 2. Check the paper's numbers against the raw data (needs GRC_MANUSCRIPT)
 python3 code/audit/verify_tables.py          # exit 0 = every number checks out
 
 # 3. Check every reference resolves and points at the right paper
-python3 code/audit/check_dois.py             # needs network (Crossref)
-python3 code/audit/check_authors.py          # needs network (Crossref)
-```
-
-```bash
-# 4. Rebuild the PDF (needs XeLaTeX; the package carries the class files)
-cd manuscript && latexmk -xelatex main.tex
+python3 code/audit/check_dois.py             # needs network (Crossref) + GRC_MANUSCRIPT
+python3 code/audit/check_authors.py          # needs network (Crossref) + GRC_MANUSCRIPT
 ```
 
 `verify_tables.py` regenerates the tables into a temporary copy, diffs them
-against the committed ones, recomputes the inline statistics quoted in the
+against the ones in the manuscript checkout, recomputes the inline statistics quoted in the
 prose, and fails if any of them has drifted. It also asserts that claims the
 paper explicitly retracted during revision have not crept back in.
 
@@ -98,7 +97,7 @@ the scripts look for the CSVs.
 
 ## Licence
 
-`code/` and `manuscript/` are MIT-licensed (see `LICENSE`).
+`code/` is MIT-licensed (see `LICENSE`).
 `data/` is licensed under CC BY 4.0 (see `DATA_LICENSE`) — cite the paper
 when reusing the released measurements or the literature-review log.
 The UCI datasets themselves are redistributed under their original terms;
