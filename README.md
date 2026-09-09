@@ -71,22 +71,30 @@ the scripts look for the CSVs.
 | `raw_downstream.csv` | 30,100 | Top-k accuracy per (dataset, method, k, seed, fold). Importance is recomputed inside each training fold, so no test object influences the selection later evaluated on it. |
 | `raw_structure.csv` | 995 | Structure-preservation metrics per (dataset, method, k). Single-shot: no seed column, no replication — the paper's tests are dataset-level for this reason. |
 | `raw_knn_scale.csv` | 5,970 | `knn_overlap` and `trustworthiness` recomputed over K ∈ {3,5,10,20,30,50} on the *same* feature subsets, to test whether the metric's own scale parameter decides the verdict. |
-| `literature_log.csv` | 52 | Systematic-review log. `read_level` is `abstract` for all entries; see the paper's Appendix A for what that does and does not support. |
+| `literature_log.csv` | 51 | Systematic-review log. `read_level` is `abstract` for all entries; see the paper's Appendix A for what that does and does not support. |
 | `fulltext_coding.csv` | 22 | Reporting-practice coding of papers read at full text. Every cell carries the quotation it rests on in the `evidence` column, so an individual judgement can be overturned without re-reading the paper. |
 
 ## Known limitations recorded here rather than hidden
 
-- `literature_log.csv` row `T1_24` lost three free-text fields
-  (`relevance`, `key_claim`, `key_finding`) to a file-write error during
-  revision. The bibliographic fields were re-verified against OpenAlex. The
-  gap is marked in that row's `notes`.
+- One paper (Yao 2016, "A triarchic theory of granular computing") was
+  originally logged as an included, systematically-reviewed paper, but its
+  review-log fields (`relevance`, `key_claim`, `key_finding`) were lost to a
+  file-write error during revision and could not be reconstructed. Rather
+  than keep an incomplete row, it was removed from the 52-paper corpus and
+  reclassified as one of the background/foundational references it is cited
+  as in the manuscript; the corpus count was updated to 51 throughout
+  (Appendix A). The citation itself remains, with a verified DOI.
 - `fulltext_coding.csv` is a convenience sample limited by full-text
   availability. Thirteen of its 22 papers belong to the survey's Axis-1
   corpus; the figures generalise to Axis 1, not to Axes 2–4.
-- Three bibliography entries (`Adams2017persistence`, `Zheng2021grouping`,
-  `Zhang2022PWS`) still use `and others` because JMLR and IJCAI do not
-  register DOIs with Crossref, so author lists could not be completed
-  automatically.
+- `Adams2017persistence` (a JMLR paper with no DOI registered anywhere) was
+  removed from the bibliography rather than kept unverifiable; the sentence
+  citing it was rewritten to fold its content into the adjacent survey
+  citation. `Zheng2021grouping` and `Zhang2022PWS` turned out to have real
+  DOIs after all (Crossref's bibliographic search missed them on the first
+  pass; `Zhang2022PWS`'s DOI is a DataCite/arXiv one, not indexed by
+  Crossref, and is verified by a direct `doi.org` redirect instead) — both
+  now carry complete author lists and correct metadata.
 
 ## Licence
 

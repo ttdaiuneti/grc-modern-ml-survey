@@ -1,9 +1,7 @@
 """Audit the FIRST author of every DOI-bearing entry against Crossref."""
 import os
-_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-DATA = os.environ.get("GRC_DATA", os.path.join(_ROOT, "data") + os.sep)
-MS = os.environ.get("GRC_MANUSCRIPT", os.path.join(_ROOT, "manuscript"))
-os.chdir(MS)
+os.chdir(os.environ.get("GRC_MANUSCRIPT",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "manuscript")))
 import json, re, time, urllib.request, urllib.parse, unicodedata
 
 def strip(s):

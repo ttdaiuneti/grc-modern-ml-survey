@@ -260,6 +260,9 @@ FIELDS = [("all_features_baseline", "All-features baseline reported"),
           ("significance_test",     "Statistical significance test run"),
           ("hyperparam_ablation",   "Own hyperparameter ablated")]
 FN = [f for f, _ in FIELDS]
+
+lit_log = pd.read_csv(DATA + "literature_log.csv")
+AXIS1_TOTAL = int((lit_log["truc"] == "1").sum())
 corpus = coding[coding.log_id.notna() & (coding.log_id.astype(str) != "")]
 N, NC = len(coding), len(corpus)
 body = [r"""\begin{table}[pos=!htbp]
@@ -269,7 +272,7 @@ only; the coding and the supporting quotation for every cell are released as
 \texttt{fulltext\_coding.csv}.  Column~2 covers all """ + str(N) + r""" papers
 coded; column~3 restricts to the """ + str(NC) + r""" that are members of this
 survey's Axis-1 corpus (Appendix~\ref{app:search}), i.e.\ """ + str(NC) + r"""
-of the 25 Axis-1 papers.}
+of the """ + str(AXIS1_TOTAL) + r""" Axis-1 papers.}
 \label{tab:practice}
 \centering\small
 \begin{tabular}{lcc}
