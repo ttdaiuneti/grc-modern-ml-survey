@@ -55,6 +55,8 @@ SPRINGER_CAPTION = {
     "tab:knn_scale": "Sensitivity of local structure metrics to neighbourhood size.",
     "tab:practice": "Reporting practices in the full-text sample.",
     "tab:practice_detail": "Per-paper reporting-practice coding for the Axis-1 corpus.",
+    "tab:selection": "Margin over the all-features baseline under pre-specified"
+                     " and post-hoc selection rules.",
 }
 SPRINGER_NOTES = {
     "tab:iris_top": ("Iris: $n=150$, $d=4$. Each attribute maximises mean\n"
@@ -400,5 +402,81 @@ for r_ in corpus.sort_values("log_id").itertuples():
                 " & ".join(mark(getattr(r_, f)) for f in FN) + r" \\")
 body.append("\\bottomrule\n\\end{tabular}\n\\end{table}")
 write("tab_practice_detail", "\n".join(body))
+
+
+
+# ── tab:selection — margin under pre-specified vs post-hoc selection ─────────
+# Every row is one mean over the ten datasets (datasets are the unit of
+# analysis, so no fold-dependence enters the interval).  The point of the
+# table is the contrast between the rows fixed in advance and the last row,
+# whose (method, k) is the arg-max over the same values it is scored on.
+def _margin_ci(vals):
+    v = np.asarray(vals, float)
+    n = len(v)
+    m = v.mean()
+    se = v.std(ddof=1) / np.sqrt(n)
+    lo, hi = stats.t.interval(0.95, n - 1, loc=m, scale=se)
+    return m, lo, hi
+
+
+def _fixed_k(method, frac):
+    out = []
+    for d in DATASETS:
+        s_ = ds[ds.dataset == d]
+        dim = int(s_['d'].iloc[0])
+        base = s_[s_.method == 'all_features']['acc_3nn'].mean()
+        k = max(1, int(np.ceil(dim * frac)))
+        sub = s_[(s_.method == method) & (s_.k_selected == k)]['acc_3nn']
+        if len(sub):
+            out.append((sub.mean() - base) * 100)
+    return out
+
+
+def _posthoc():
+    out = []
+    for d in DATASETS:
+        s_ = ds[ds.dataset == d]
+        base = s_[s_.method == 'all_features'].set_index(['seed', 'fold'])['acc_3nn']
+        per = s_.groupby(['method', 'k_selected'])['acc_3nn'].mean()
+        bi = per.idxmax()
+        best = s_[(s_.method == bi[0]) & (s_.k_selected == bi[1])] \
+            .set_index(['seed', 'fold'])['acc_3nn']
+        j = best.index.intersection(base.index)
+        out.append((best[j] - base[j]).mean() * 100)
+    return out
+
+
+body = [r"""\begin{table}[!htbp]
+\caption{Mean margin over the all-features baseline across the ten datasets,
+under selection rules fixed in advance and under selection made after
+inspecting the results.  Each row is a mean of ten dataset-level margins in
+percentage points, with a $t$ interval on those ten values; the dataset is the
+unit of analysis, so the fold dependence of Table~\ref{tab:allfeats} does not
+enter.  $d$ is the number of attributes.}
+\label{tab:selection}
+\centering\small
+\setlength\tabcolsep{5pt}
+\begin{tabular}{lrc}
+\toprule
+Selection rule & Margin (pp) & 95\% CI \\
+\midrule
+\multicolumn{3}{l}{\emph{$k$ fixed in advance, NRS}} \\"""]
+for frac, lab in [(0.25, r"$k=\lceil d/4 \rceil$"), (1/3, r"$k=\lceil d/3 \rceil$"),
+                  (0.5, r"$k=\lceil d/2 \rceil$"), (2/3, r"$k=\lceil 2d/3 \rceil$"),
+                  (0.75, r"$k=\lceil 3d/4 \rceil$")]:
+    m, lo, hi = _margin_ci(_fixed_k('nrs', frac))
+    body.append(f"\\quad {lab} & ${m:+.2f}$ & $[{lo:+.2f},\\,{hi:+.2f}]$ \\\\")
+body.append(r"\addlinespace")
+body.append(r"\multicolumn{3}{l}{\emph{$k=\lceil d/2 \rceil$ fixed in advance, other selectors}} \\")
+for meth, lab in [('relieff', 'ReliefF'), ('mutual_info', 'Mutual information'),
+                  ('pai', 'PAI'), ('variance', 'Variance')]:
+    m, lo, hi = _margin_ci(_fixed_k(meth, 0.5))
+    body.append(f"\\quad {lab} & ${m:+.2f}$ & $[{lo:+.2f},\\,{hi:+.2f}]$ \\\\")
+body.append(r"\addlinespace")
+body.append(r"\multicolumn{3}{l}{\emph{chosen after inspecting the results}} \\")
+m, lo, hi = _margin_ci(_posthoc())
+body.append(f"\\quad best $(\\text{{method}},k)$ & $\\mathbf{{{m:+.2f}}}$ & $[{lo:+.2f},\\,{hi:+.2f}]$ \\\\")
+body.append("\\bottomrule\n\\end{tabular}\n\\end{table}")
+write("tab_selection", "\n".join(body))
 
 print("\nAll tables regenerated from raw CSVs.")

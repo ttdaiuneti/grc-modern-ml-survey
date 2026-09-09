@@ -14,6 +14,7 @@ DATA = os.environ.get("GRC_DATA", os.path.join(_ROOT, "data") + os.sep)
 MS = os.environ.get("GRC_MANUSCRIPT", os.path.join(_ROOT, "manuscript"))
 os.chdir(MS)
 import glob
+import re
 import subprocess
 import sys
 import tempfile
@@ -299,6 +300,104 @@ for bad, why in [("47.3", "pre-correction Iris PAI accuracy"),
                  ("38 of 47", "unverifiable literature statistic"),
                  ("19 of 23", "unverifiable literature statistic")]:
     check(f"absent: {why!r}", bad, present=False)
+
+print("11. Bibliography counts stated in the text match refs.bib")
+# Adding or removing a reference silently invalidates three stated counts:
+# the bibliography size, the non-corpus remainder, and the PRISMA leaf node.
+_bib = os.path.join(MS, "refs.bib")
+if not os.path.exists(_bib):
+    print("  [ok ] refs.bib not present in this checkout; skipped")
+else:
+    n_bib = len([l for l in open(_bib) if l.lstrip().startswith("@")])
+    m = re.search(r"The (\d+)-entry bibliography", SRC)
+    # The check verifies a claim when the manuscript makes one; a draft that
+    # does not state a bibliography size has nothing to contradict.
+    if m is None:
+        print(f"  [ok ] refs.bib has {n_bib} entries; manuscript states no "
+              f"count, nothing to check")
+    else:
+        stated = int(m.group(1))
+        ok = stated == n_bib
+        print(f"  [{'ok ' if ok else 'FAIL'}] refs.bib has {n_bib} entries "
+              f"(manuscript states {stated})")
+        if not ok:
+            FAILURES.append(f"bibliography size {stated} != {n_bib}")
+    # Derive the split from the PRISMA leaf node, which states both halves,
+    # and require it to reconcile with refs.bib and with the prose remainder.
+    mp = re.search(r"\((\d+) cited; (\d+) non-corpus refs\)", SRC)
+    m2 = re.search(r"remaining (\d+) bibliography entries", SRC)
+    if mp:
+        cited, noncorp = int(mp.group(1)), int(mp.group(2))
+        ok2 = cited + noncorp == n_bib
+        print(f"  [{'ok ' if ok2 else 'FAIL'}] PRISMA node {cited} + {noncorp} "
+              f"== {n_bib} refs.bib entries")
+        if not ok2:
+            FAILURES.append("PRISMA bibliography node inconsistent")
+        if m2:
+            ok3 = int(m2.group(1)) == noncorp
+            print(f"  [{'ok ' if ok3 else 'FAIL'}] prose remainder "
+                  f"{m2.group(1)} == PRISMA non-corpus {noncorp}")
+            if not ok3:
+                FAILURES.append("non-corpus bibliography remainder inconsistent")
+    else:
+        print("  [ok ] no PRISMA bibliography node; skipped")
+
+print("12. Selection-rule margins quoted inline in Section 8.1")
+# Only a manuscript that actually discusses the selection comparison can
+# contradict it; a draft that omits the section has nothing to check.
+_SEC = "\n".join(open(f).read() for f in sorted(glob.glob("sections/*.tex")))
+if "tables/tab_selection" not in _SEC:
+    print("  [ok ] manuscript does not discuss the selection comparison; skipped")
+else:
+    def _mgn(method, frac):
+        out = []
+        for d in DATASETS:
+            s_ = ds[ds.dataset == d]
+            dim = int(s_['d'].iloc[0])
+            base = s_[s_.method == 'all_features']['acc_3nn'].mean()
+            k = max(1, int(np.ceil(dim * frac)))
+            sub = s_[(s_.method == method) & (s_.k_selected == k)]['acc_3nn']
+            if len(sub):
+                out.append((sub.mean() - base) * 100)
+        return np.asarray(out)
+
+    for meth, frac, lab in [('nrs', 0.25, 'NRS k=d/4'), ('nrs', 0.75, 'NRS k=3d/4'),
+                            ('nrs', 0.5, 'NRS k=d/2'), ('relieff', 0.5, 'ReliefF k=d/2'),
+                            ('mutual_info', 0.5, 'MI k=d/2'),
+                            ('variance', 0.5, 'variance k=d/2'),
+                            ('pai', 0.5, 'PAI k=d/2')]:
+        check(f"{lab} margin {_mgn(meth, frac).mean():+.2f} pp",
+              f"${_mgn(meth, frac).mean():+.2f}$")
+
+    # no pre-specified configuration may have a positive point estimate; the
+    # sentence in the text says so, and it must stay true if the data changes
+    pos = [lab for meth, frac, lab in
+           [('nrs', 0.25, 'd/4'), ('nrs', 1/3, 'd/3'), ('nrs', 0.5, 'd/2'),
+            ('nrs', 2/3, '2d/3'), ('nrs', 0.75, '3d/4'), ('relieff', 0.5, 'ReliefF'),
+            ('mutual_info', 0.5, 'MI'), ('pai', 0.5, 'PAI'),
+            ('variance', 0.5, 'variance')]
+           if _mgn(meth, frac).mean() > 0]
+    ok = not pos
+    print(f"  [{'ok ' if ok else 'FAIL'}] no pre-specified rule has a positive margin"
+          + ("" if ok else f"  <- positive: {pos}"))
+    if not ok:
+        FAILURES.append("a pre-specified rule now has a positive margin")
+
+    ph = []
+    for d in DATASETS:
+        s_ = ds[ds.dataset == d]
+        base = s_[s_.method == 'all_features'].set_index(['seed', 'fold'])['acc_3nn']
+        per = s_.groupby(['method', 'k_selected'])['acc_3nn'].mean()
+        bi = per.idxmax()
+        best = s_[(s_.method == bi[0]) & (s_.k_selected == bi[1])] \
+            .set_index(['seed', 'fold'])['acc_3nn']
+        j = best.index.intersection(base.index)
+        ph.append((best[j] - base[j]).mean() * 100)
+    ph = np.asarray(ph)
+    se = ph.std(ddof=1) / np.sqrt(len(ph))
+    lo, hi = stats.t.interval(0.95, len(ph) - 1, loc=ph.mean(), scale=se)
+    check(f"post-hoc margin {ph.mean():+.2f} pp", f"${ph.mean():+.2f}$ pp")
+    check(f"post-hoc CI [{lo:+.2f}, {hi:+.2f}]", f"$[{lo:+.2f},\\,{hi:+.2f}]$")
 
 print()
 if FAILURES:
