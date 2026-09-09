@@ -1,0 +1,7 @@
+numpy>=2.0.2
+pandas>=2.3.3
+scipy>=1.13.1
+scikit-learn>=1.6.1
+matplotlib>=3.9.4
+ripser>=0.6.15
+persim>=0.3.8

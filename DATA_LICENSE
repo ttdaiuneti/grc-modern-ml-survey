@@ -1,0 +1,14 @@
+The contents of the data/ directory (raw_importance.csv, raw_downstream.csv,
+raw_structure.csv, raw_knn_scale.csv, literature_log.csv,
+fulltext_coding.csv) are licensed under the Creative Commons Attribution 4.0
+International License (CC BY 4.0).
+
+To view a copy of this licence, visit
+https://creativecommons.org/licenses/by/4.0/
+or send a letter to Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+
+You are free to share and adapt this data for any purpose, even commercially,
+provided you give appropriate credit to Thanh Dai Tran and Long Giang Nguyen,
+provide a link to the licence, and indicate if changes were made.
+
+Full legal text: https://creativecommons.org/licenses/by/4.0/legalcode
