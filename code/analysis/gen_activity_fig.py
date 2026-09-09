@@ -5,12 +5,17 @@ Output: figures/activity_by_axis.pdf
 
 import os, matplotlib
 matplotlib.use("Agg")
+# Embed real (TrueType) fonts, not Type 3 bitmaps, so the PDF passes
+# publisher preflight.
+matplotlib.rcParams["pdf.fonttype"] = 42
+matplotlib.rcParams["ps.fonttype"] = 42
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 from collections import defaultdict
 
-os.makedirs("figures", exist_ok=True)
+OUT = os.environ.get("GRC_FIGURES_OUT", "figures")
+os.makedirs(OUT, exist_ok=True)
 
 # ── Paper → (year, axis) mapping ──────────────────────────────────────────────
 # Axes: 1=Granule Geometry, 2=Topology, 3=Efficiency, 4=Sufficiency/Limits
@@ -136,7 +141,7 @@ ax_main.text(x[years.index(2020)] + 0.05, data.max() + 0.85,
              "Axis 1 surge", fontsize=7.5, color="gray", style="italic")
 
 plt.tight_layout(pad=0.4)
-plt.savefig("figures/activity_by_axis.pdf", dpi=300, bbox_inches="tight")
-plt.savefig("figures/activity_by_axis.png", dpi=200, bbox_inches="tight")
-print("Saved figures/activity_by_axis.pdf and .png")
+plt.savefig(f"{OUT}/activity_by_axis.pdf", dpi=300, bbox_inches="tight")
+plt.savefig(f"{OUT}/activity_by_axis.png", dpi=200, bbox_inches="tight")
+print(f"Saved {OUT}/activity_by_axis.pdf and .png")
 print(f"Total papers plotted: {sum(len([p for p,v in PAPERS.items() if v[1]==a]) for a in axes)}")
