@@ -2,10 +2,6 @@
 Generate Figure: best-k minus all-features 3-NN accuracy margin per dataset.
 Output: figures/margin_plot.pdf
 """
-import os
-DATA = os.environ.get("GRC_DATA",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                 "..", "..", "data") + os.sep)
 import os, matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -15,7 +11,7 @@ import pandas as pd
 
 os.makedirs("figures", exist_ok=True)
 
-RAW_DS = DATA + "raw_downstream.csv"
+RAW_DS = "../../persistence-granular/E1-experiments/raw_downstream.csv"
 ds = pd.read_csv(RAW_DS)
 
 DATASETS = ['iris','wine','ionosphere','sonar','glass',

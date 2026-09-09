@@ -29,6 +29,8 @@ imp = pd.read_csv(RAW + "raw_importance.csv")
 st = pd.read_csv(RAW + "raw_structure.csv")
 ks = pd.read_csv(RAW + "raw_knn_scale.csv")
 coding = pd.read_csv(DATA + "fulltext_coding.csv")
+lit_log = pd.read_csv(DATA + "literature_log.csv")
+AXIS1_TOTAL = int((lit_log["truc"].astype(str) == "1").sum())
 DATASETS = ['iris', 'wine', 'ionosphere', 'sonar', 'glass',
             'ecoli', 'heart', 'parkinsons', 'seeds', 'wdbc']
 
@@ -212,7 +214,7 @@ check(f"all coded omitting the baseline: {NA - int(coding['all_features_baseline
       f"{NA - int(coding['all_features_baseline'].sum())} of the\n22 papers omit it")
 check(f"no-ablation count: {NA - int(coding['hyperparam_ablation'].sum())}/{NA}",
       f"{NA - int(coding['hyperparam_ablation'].sum())} of 22 papers vary no hyperparameter")
-check(f"corpus is {NC} of the 25 Axis-1 papers", f"{NC} of the 25")
+check(f"corpus is {NC} of the {AXIS1_TOTAL} Axis-1 papers", f"{NC} of the {AXIS1_TOTAL}")
 noev = int((coding["evidence"].astype(str).str.len() < 20).sum())
 print(f"  [{'ok ' if noev == 0 else 'FAIL'}] every coded row carries an "
       f"evidence quotation ({noev} rows without)")
@@ -228,10 +230,10 @@ if missing: FAILURES.append("detail table incomplete")
 print("8c. Literature log integrity")
 import csv as _csv
 _log = list(_csv.DictReader(open(DATA + "literature_log.csv")))
-_ok = len(_log) == 52
-print(f"  [{'ok ' if _ok else 'FAIL'}] literature_log.csv has 52 rows (found {len(_log)})")
+_ok = len(_log) == 51
+print(f"  [{'ok ' if _ok else 'FAIL'}] literature_log.csv has 51 rows (found {len(_log)})")
 if not _ok:
-    FAILURES.append(f"literature_log.csv row count {len(_log)} != 52")
+    FAILURES.append(f"literature_log.csv row count {len(_log)} != 51")
 _ids = [r["paper_id"] for r in _log]
 _dup = {i for i in _ids if _ids.count(i) > 1}
 print(f"  [{'ok ' if not _dup else 'FAIL'}] paper_ids unique" + (f" (dups {_dup})" if _dup else ""))
@@ -239,7 +241,7 @@ if _dup: FAILURES.append("duplicate paper_id in literature_log")
 _ragged = [r["paper_id"] for r in _log if None in r or any(v is None for v in r.values())]
 print(f"  [{'ok ' if not _ragged else 'FAIL'}] no ragged rows" + (f" ({_ragged})" if _ragged else ""))
 if _ragged: FAILURES.append("ragged rows in literature_log")
-check("manuscript states 52 included papers", "52 papers that")
+check("manuscript states 51 included papers", "51 papers that")
 
 print("9. Cross-file consistency: a number stated twice must agree")
 import collections
@@ -251,7 +253,7 @@ SHARED = [
     ("variance-null p", "0.23"), ("hybrid-vs-NRS p", "0.010"),
     ("cluster ARI p", "0.004"), ("importance measurements", "4{,}975"),
     ("downstream records", "30{,}100"), ("open problems", "nine"),
-    ("datasets not separable", "seven of"), ("corpus size", "52"),
+    ("datasets not separable", "seven of"), ("corpus size", "51"),
 ]
 for label, tok in SHARED:
     where = [f for f, t in FILES.items() if tok in t]
@@ -265,6 +267,10 @@ CONTRADICT = [
     ("superseded eight-problem count", "eight open"),
     ("removed unverifiable reference Xia2021SLR", "Xia2021SLR"),
     ("theorem attributed to the removed reference", "stability of local\nredundancy"),
+    ("stale 52-paper corpus count", "52 papers that"),
+    ("stale 52-paper corpus count (topology)", "52-paper corpus"),
+    ("stale 25-paper Axis-1 count", "13 of the 25"),
+    ("removed no-DOI reference Adams2017persistence", "Adams2017persistence"),
     ("narrow scale-only Pattern B (abstract)", "dominated by a scale/magnitude"),
     ("narrow scale-only Pattern B (heading)", "Scale-Artefact Dominance"),
     ("Pattern B keyed to measurement scale alone", "measurement-scale property rather than"),

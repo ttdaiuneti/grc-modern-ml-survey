@@ -1,8 +1,6 @@
 import os
-_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-DATA = os.environ.get("GRC_DATA", os.path.join(_ROOT, "data") + os.sep)
-MS = os.environ.get("GRC_MANUSCRIPT", os.path.join(_ROOT, "manuscript"))
-os.chdir(MS)
+os.chdir(os.environ.get("GRC_MANUSCRIPT",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "manuscript")))
 import json, re, time, urllib.request, urllib.parse, difflib
 
 def norm(s):
@@ -21,6 +19,19 @@ for k, body in entries:
 
 print(f"checking {len(rows)} DOIs against Crossref\n")
 bad, mism, ok = [], [], 0
+def doi_org_resolves(doi):
+    # Not every registry (e.g. DataCite for arXiv DOIs like 10.48550/...) is
+    # indexed by Crossref; a plain doi.org redirect check catches those.
+    try:
+        req = urllib.request.Request("https://doi.org/" + urllib.parse.quote(doi),
+              headers={"User-Agent": "doi-audit/1.0 (mailto:ttdaiuneti@gmail.com)"}, method="HEAD")
+        with urllib.request.urlopen(req, timeout=20) as r:
+            return 200 <= r.status < 400
+    except urllib.error.HTTPError as e:
+        return 200 <= e.code < 400
+    except Exception:
+        return False
+
 for k, doi, title in rows:
     url = "https://api.crossref.org/works/" + urllib.parse.quote(doi)
     req = urllib.request.Request(url, headers={"User-Agent": "doi-audit/1.0 (mailto:ttdaiuneti@gmail.com)"})
@@ -36,7 +47,11 @@ for k, doi, title in rows:
             ok += 1
     except Exception as e:
         code = getattr(e, "code", str(e)[:28])
-        bad.append((k, doi, title[:52], code)); print(f"  NOT FOUND({code}) {k:26s} {doi}")
+        if code == 404 and doi_org_resolves(doi):
+            ok += 1
+            print(f"  ok (non-Crossref registry) {k:26s} {doi}")
+        else:
+            bad.append((k, doi, title[:52], code)); print(f"  NOT FOUND({code}) {k:26s} {doi}")
     time.sleep(0.12)
 
 print(f"\n== resolves & title matches : {ok}/{len(rows)}")
