@@ -49,13 +49,18 @@ def check(desc, needle, present=True):
 
 
 print("1. Tables are byte-identical to a fresh regeneration")
+# Regenerate into a throwaway directory: the audit must never mutate the
+# manuscript's own table files.  Match the float-placement token the current
+# tables use so the comparison tests the numbers, not the template.
 tmp = tempfile.mkdtemp()
-shutil.copytree("tables", tmp + "/before")
+_any = open(sorted(glob.glob("tables/*.tex"))[0]).read()
+_place = "pos=!htbp" if r"\begin{table}[pos=!htbp]" in _any else "!htbp"
+env = dict(os.environ, GRC_TABLES_OUT=tmp + "/after", GRC_TABLE_PLACEMENT=_place)
 subprocess.run([sys.executable,
                 os.path.join(_ROOT, "code", "analysis", "gen_tables.py")],
-               capture_output=True, check=True)
-for f in sorted(os.listdir(tmp + "/before")):
-    same = open(tmp + "/before/" + f).read() == open("tables/" + f).read()
+               capture_output=True, check=True, env=env)
+for f in sorted(os.listdir(tmp + "/after")):
+    same = open(tmp + "/after/" + f).read() == open("tables/" + f).read()
     print(f"  [{'ok ' if same else 'FAIL'}] tables/{f}")
     if not same:
         FAILURES.append(f"tables/{f} drifted from generator")
