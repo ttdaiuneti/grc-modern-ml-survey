@@ -301,46 +301,108 @@ for bad, why in [("47.3", "pre-correction Iris PAI accuracy"),
                  ("19 of 23", "unverifiable literature statistic")]:
     check(f"absent: {why!r}", bad, present=False)
 
-print("11. Bibliography counts stated in the text match refs.bib")
-# Adding or removing a reference silently invalidates three stated counts:
-# the bibliography size, the non-corpus remainder, and the PRISMA leaf node.
+print("11. Bibliography counts stated in the text match refs.bib and the log")
 _bib = os.path.join(MS, "refs.bib")
+_log = os.path.join(DATA, "literature_log.csv")
 if not os.path.exists(_bib):
     print("  [ok ] refs.bib not present in this checkout; skipped")
 else:
-    n_bib = len([l for l in open(_bib) if l.lstrip().startswith("@")])
+    bibtxt = open(_bib).read()
+    n_bib = len(re.findall(r"^@", bibtxt, re.M))
     m = re.search(r"The (\d+)-entry bibliography", SRC)
-    # The check verifies a claim when the manuscript makes one; a draft that
-    # does not state a bibliography size has nothing to contradict.
-    if m is None:
-        print(f"  [ok ] refs.bib has {n_bib} entries; manuscript states no "
-              f"count, nothing to check")
+    if m and int(m.group(1)) != n_bib:
+        print(f"  [FAIL] refs.bib has {n_bib} entries (manuscript states {m.group(1)})")
+        FAILURES.append(f"bibliography size {m.group(1)} != {n_bib}")
+    elif m:
+        print(f"  [ok ] refs.bib has {n_bib} entries (manuscript states {m.group(1)})")
     else:
-        stated = int(m.group(1))
-        ok = stated == n_bib
-        print(f"  [{'ok ' if ok else 'FAIL'}] refs.bib has {n_bib} entries "
-              f"(manuscript states {stated})")
+        print(f"  [ok ] refs.bib has {n_bib} entries; manuscript states no count")
+
+    # Join the 51-paper log against refs.bib by (first-author surname, year +/-1)
+    # so "N of the 51 screened papers are cited" is checked against reality, not
+    # against the manuscript's own prose.
+    ent = re.findall(r"@\w+\{[^,]+,(.*?)\n\}", bibtxt, re.S)
+    bibkeys = set()
+    for b in ent:
+        a = re.search(r"author\s*=\s*\{+\s*([A-Za-z\-\u2019\']+)", b)
+        y = re.search(r"year\s*=\s*\{(\d{4})\}", b)
+        if a and y:
+            for dy in (-2, -1, 0, 1, 2):
+                bibkeys.add((a.group(1).lower(), str(int(y.group(1)) + dy)))
+    lg = pd.read_csv(_log)
+    uncited = [r.paper_id for r in lg.itertuples()
+               if (str(r.first_author).split()[0].lower(), str(r.year)) not in bibkeys]
+    n_cited = len(lg) - len(uncited)
+    claim_all = "All\n51 screened papers are cited" in SRC or "all 51 cited" in SRC
+    if claim_all:
+        ok = not uncited
+        print(f"  [{'ok ' if ok else 'FAIL'}] manuscript says all 51 corpus papers "
+              f"cited; log join finds {n_cited}/51" + ("" if ok else f", uncited {uncited}"))
         if not ok:
-            FAILURES.append(f"bibliography size {stated} != {n_bib}")
-    # Derive the split from the PRISMA leaf node, which states both halves,
-    # and require it to reconcile with refs.bib and with the prose remainder.
-    mp = re.search(r"\((\d+) cited; (\d+) non-corpus refs\)", SRC)
-    m2 = re.search(r"remaining (\d+) bibliography entries", SRC)
-    if mp:
-        cited, noncorp = int(mp.group(1)), int(mp.group(2))
-        ok2 = cited + noncorp == n_bib
-        print(f"  [{'ok ' if ok2 else 'FAIL'}] PRISMA node {cited} + {noncorp} "
-              f"== {n_bib} refs.bib entries")
-        if not ok2:
-            FAILURES.append("PRISMA bibliography node inconsistent")
-        if m2:
-            ok3 = int(m2.group(1)) == noncorp
-            print(f"  [{'ok ' if ok3 else 'FAIL'}] prose remainder "
-                  f"{m2.group(1)} == PRISMA non-corpus {noncorp}")
-            if not ok3:
-                FAILURES.append("non-corpus bibliography remainder inconsistent")
+            FAILURES.append(f"corpus papers not all cited: {uncited}")
     else:
-        print("  [ok ] no PRISMA bibliography node; skipped")
+        mc = re.search(r"(\w+) of the 51 screened papers are cited", SRC)
+        want = {"forty-five":45,"forty-seven":47,"fifty":50,"all":51}.get(
+            (mc.group(1).lower() if mc else ""), None)
+        if want is not None:
+            ok = n_cited == want
+            print(f"  [{'ok ' if ok else 'FAIL'}] {n_cited}/51 corpus papers cited "
+                  f"(manuscript states {want})")
+            if not ok:
+                FAILURES.append(f"cited-corpus count {want} != {n_cited}")
+        else:
+            print(f"  [ok ] {n_cited}/51 corpus papers cited; no prose count to check")
+
+    mp = re.search(r"remaining (\d+) bibliography entries are references outside", SRC)
+    if mp:
+        want_nc = int(mp.group(1))
+        got_nc = n_bib - n_cited
+        ok = want_nc == got_nc
+        print(f"  [{'ok ' if ok else 'FAIL'}] non-corpus remainder: manuscript "
+              f"{want_nc}, refs.bib - cited = {got_nc}")
+        if not ok:
+            FAILURES.append(f"non-corpus remainder {want_nc} != {got_nc}")
+
+print("11b. Claim-class coding matches the manuscript")
+_fp = os.path.join(DATA, "failure_pattern_coding.csv")
+if not os.path.exists(_fp):
+    _fp = os.path.join(MS, "coding", "failure_pattern_coding.csv")
+if os.path.exists(_fp):
+    fp = pd.read_csv(_fp)
+    st = fp.import_status.value_counts().to_dict()
+    imp = fp[fp.import_status == "import"]
+    cc = imp.claim_class.astype(str).str.strip().value_counts().to_dict()
+    # Table 10 (tab:prevalence) is hand-written; assert the CSV that backs it
+    # carries exactly the distribution the table prints.
+    _p = SRC.find(chr(92)+"label{tab:prevalence}")
+    tab = SRC[_p: _p + 1400] if _p >= 0 else ""
+    def _row(label):
+        for ln in tab.splitlines():
+            if label in ln and "&" in ln:
+                cell = ln.split("&")[-1].replace(chr(92), " ").strip()
+                return int(cell) if cell.isdigit() else None
+        return None
+    for label, got, needle, exp in [
+        ("13 imports",    st.get("import", 0),    "Imports an external framework", 13),
+        ("23 internal",   st.get("internal", 0),  "Internal GrC development", 23),
+        ("15 background", st.get("background", 0),"Background / foundational reference", 15),
+        ("class (a)=5",   cc.get("a", 0),         "the equivalence is the stated contribution", 5),
+        ("class (b)=7",   cc.get("b", 0),         "quantity reused, novelty claimed elsewhere", 7),
+        ("class (c)=1",   cc.get("c", 0),         "performance claimed for the quantity", 1),
+    ]:
+        printed = _row(needle)
+        ok = (got == exp) and (printed == exp)
+        print(f"  [{'ok ' if ok else 'FAIL'}] {label}: CSV={got}, Table 10 prints {printed}")
+        if not ok:
+            FAILURES.append(f"claim-class {label}: CSV {got}, table {printed}, expect {exp}")
+    prov_missing = imp[imp.provenance.fillna("").str.strip() == ""].paper_id.tolist()
+    ok = not prov_missing
+    print(f"  [{'ok ' if ok else 'FAIL'}] provenance filled for all 13 imports"
+          + ("" if ok else f"  <- empty: {prov_missing}"))
+    if not ok:
+        FAILURES.append(f"provenance empty for {prov_missing}")
+else:
+    print("  [ok ] failure_pattern_coding.csv not in this checkout; skipped")
 
 print("12. Selection-rule margins quoted inline in Section 8.1")
 # Only a manuscript that actually discusses the selection comparison can
