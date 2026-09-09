@@ -32,6 +32,7 @@ pip install -r requirements.txt
 
 # 1. Regenerate every table in the paper from the raw data
 python3 code/analysis/gen_tables.py          # writes tables/*.tex in the CWD
+GRC_TABLE_STYLE=springer python3 code/analysis/gen_tables.py   # sn-jnl layout
 
 # 2. Check the paper's numbers against the raw data (needs GRC_MANUSCRIPT)
 python3 code/audit/verify_tables.py          # exit 0 = every number checks out
@@ -45,6 +46,15 @@ python3 code/audit/check_authors.py          # needs network (Crossref) + GRC_MA
 against the ones in the manuscript checkout, recomputes the inline statistics quoted in the
 prose, and fails if any of them has drifted. It also asserts that claims the
 paper explicitly retracted during revision have not crept back in.
+
+`gen_tables.py` emits the same numbers in two layouts: the default Elsevier
+CAS `table` (long caption, used by the `paper/` draft) and, with
+`GRC_TABLE_STYLE=springer`, the compact `surveytable` wrapper with a short
+caption plus a `Notes.` block (used by the Artificial Intelligence Review
+submission). `verify_tables.py` picks the layout to match from the tables it
+finds in `GRC_MANUSCRIPT`, so the same audit covers either manuscript. The
+float-placement token likewise follows the manuscript: `pos=!htbp` for CAS,
+`!htbp` for sn-jnl (`GRC_TABLE_PLACEMENT`).
 
 ## Reproducing the experiments from scratch
 
@@ -73,7 +83,7 @@ the scripts look for the CSVs.
 | `literature_log.csv` | 51 | Systematic-review log. `read_level` is `abstract` for all entries; see the paper's Appendix A for what that does and does not support. |
 | `fulltext_coding.csv` | 22 | Reporting-practice coding of papers read at full text. Every cell carries the quotation it rests on in the `evidence` column, so an individual judgement can be overturned without re-reading the paper. |
 
-## Known limitations recorded here rather than hidden
+## Known limitations
 
 - One paper (Yao 2016, "A triarchic theory of granular computing") was
   originally logged as an included, systematically-reviewed paper, but its

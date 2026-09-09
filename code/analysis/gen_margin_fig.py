@@ -4,15 +4,21 @@ Output: figures/margin_plot.pdf
 """
 import os, matplotlib
 matplotlib.use("Agg")
+# Embed real (TrueType) fonts, not Type 3 bitmaps, so the PDF passes
+# publisher preflight.
+matplotlib.rcParams["pdf.fonttype"] = 42
+matplotlib.rcParams["ps.fonttype"] = 42
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 
-os.makedirs("figures", exist_ok=True)
+OUT = os.environ.get("GRC_FIGURES_OUT", "figures")
+os.makedirs(OUT, exist_ok=True)
 
-RAW_DS = "../../persistence-granular/E1-experiments/raw_downstream.csv"
-ds = pd.read_csv(RAW_DS)
+DATA = os.environ.get("GRC_DATA",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data") + os.sep)
+ds = pd.read_csv(os.path.join(DATA, "raw_downstream.csv"))
 
 DATASETS = ['iris','wine','ionosphere','sonar','glass',
             'ecoli','heart','parkinsons','seeds','wdbc']
@@ -86,9 +92,9 @@ ax.legend(handles=[blue_patch, gray_patch],
           fontsize=7.5, loc='upper right', framealpha=0.9)
 
 plt.tight_layout(pad=0.4)
-plt.savefig("figures/margin_plot.pdf", dpi=300, bbox_inches="tight")
-plt.savefig("figures/margin_plot.png", dpi=200, bbox_inches="tight")
-print("Saved figures/margin_plot.pdf and .png")
+plt.savefig(f"{OUT}/margin_plot.pdf", dpi=300, bbox_inches="tight")
+plt.savefig(f"{OUT}/margin_plot.png", dpi=200, bbox_inches="tight")
+print(f"Saved {OUT}/margin_plot.pdf and .png")
 for l, m, a, b, ph in zip(labels, margins, all_accs, best_accs, p_holm):
     flag = "SIG" if ph < 0.05 else "ns"
     print(f"  {l:14s} all={a:.1f}%  best={b:.1f}%  margin={m:+.2f}pp  "

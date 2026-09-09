@@ -55,7 +55,9 @@ print("1. Tables are byte-identical to a fresh regeneration")
 tmp = tempfile.mkdtemp()
 _any = open(sorted(glob.glob("tables/*.tex"))[0]).read()
 _place = "pos=!htbp" if r"\begin{table}[pos=!htbp]" in _any else "!htbp"
-env = dict(os.environ, GRC_TABLES_OUT=tmp + "/after", GRC_TABLE_PLACEMENT=_place)
+_style = "springer" if r"\begin{surveytable}" in _any else "elsevier"
+env = dict(os.environ, GRC_TABLES_OUT=tmp + "/after",
+           GRC_TABLE_PLACEMENT=_place, GRC_TABLE_STYLE=_style)
 subprocess.run([sys.executable,
                 os.path.join(_ROOT, "code", "analysis", "gen_tables.py")],
                capture_output=True, check=True, env=env)
