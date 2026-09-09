@@ -1,0 +1,81 @@
+\section{Axis 3: Computational Efficiency}
+\label{sec:efficiency}
+
+The computational bottleneck of neighbourhood rough sets is the dependency
+evaluation $\DEP(B \cup \{a\})$ for each candidate attribute $a$ at each
+forward-greedy step.  Na\"ively, this costs $O(n^2 d)$: for each of the
+$n^2/2$ object pairs, check whether they share a neighbourhood granule
+under $B$.  For large $n$ (thousands of objects) or large $d$ (gene expression),
+this is prohibitive.  Three families of acceleration have emerged.
+
+%-----------------------------------------------------------------------
+\subsection{Object-Pair Acceleration}
+\label{sec:pair_accel}
+%-----------------------------------------------------------------------
+
+\paragraph{Maximal discernibility pairs (Dai et al., 2018).}
+Rather than maintaining a dependency degree over all $n^2/2$ pairs, Dai et
+al.~\cite{Dai2018TFS} observe that once a pair $(x_i, x_j)$ has been
+\emph{discerned} by the current attribute subset $B$ (i.e., they fall in
+different neighbourhoods), it does not need to be revisited when adding
+further attributes.  The working set of pairs shrinks monotonically as $B$
+grows.  This yields the concept of \emph{reduced maximal discernibility
+pairs}: the minimal set of cross-class object pairs sufficient to determine
+which attributes can further increase $\DEP$.  Empirically, the working set
+reaches $\leq 20\%$ of all pairs on typical UCI datasets.
+
+\paragraph{Parallel discernibility matrix (Sowkuntla \& Prasad Rao, 2021).}
+The discernibility matrix representation of a fuzzy rough set---one row per
+cross-class pair, one column per attribute---is sparser than the full
+similarity matrix and decomposes naturally across rows.
+Sowkuntla and Prasad Rao~\cite{Sowkuntla2021DARA} implement this decomposition
+via MapReduce, reporting linear speedup on large datasets.  The key observation---discernibility
+matrix rows are cheaper and more parallelisable than similarity matrix rows---was
+identified independently but shares its core argument with Dai et al.'s
+working-set reduction.
+
+\paragraph{Discernibility hashing (Luo et al., 2025).}
+Luo et al.~\cite{Luo2025hash} further compress the discernibility matrix by
+hashing each row's attribute support set into a fixed-size hash space.
+Two rows with the same support hash to the same bucket; only canonical
+representatives per bucket are processed.  This reduces the effective matrix
+size from $O(n^2)$ rows to $O(H)$ buckets (where $H$ is the hash table size),
+with controllable collision probability.
+
+%-----------------------------------------------------------------------
+\subsection{Feature-Space Acceleration}
+\label{sec:feat_accel}
+%-----------------------------------------------------------------------
+
+\paragraph{Grouping + representative selection.}
+A complementary strategy groups attributes by mutual redundancy (clustering in
+feature space) and selects one representative per group.  Kuzudisli et
+al.~\cite{Kuzudisli2023review} survey this family, which encompasses FCBF
+(Yu \& Liu~\cite{YuLiu2004}, 2321 citations), graph-based grouping
+(Zheng et al.~\cite{Zheng2021grouping}; Wan et al.~\cite{Wan2023TFS}), and
+cascaded fuzzy clustering (Chen et al.~\cite{Chen2024cascade}).
+The redundancy within each group can be formalised in granular terms:
+two attributes $a, b$ are \emph{granularly redundant} if
+$\NB{\{a\}}(x) = \NB{\{b\}}(x)$ for all $x$; the granule geometry is then
+a natural basis for the clustering step.
+
+%-----------------------------------------------------------------------
+\subsection{Distance Concentration as a Barrier}
+\label{sec:concentration}
+%-----------------------------------------------------------------------
+
+All pair-pruning strategies share a vulnerability at high dimension:
+\emph{concentration of measure}.  In $d$-dimensional space, the ratio
+$(\max_{i,j} \rho(x_i,x_j)) / (\min_{i,j} \rho(x_i,x_j)) \to 1$ as
+$d \to \infty$ for many distributions.  When all distances are nearly equal,
+pruning by triangle inequality (``if $\rho(a,c) > \rho(a,b) + \rho(b,c)$
+then prune'') offers no saving because no triangle inequality is violated.
+Song et al.'s TRIM~\cite{TRIM2025} showed in the vector-search context that
+pruning ratios collapse to near-zero at $d > 100$ without landmark-based
+corrections.
+
+The same barrier applies to rough set pair acceleration at high $d$.
+The literature benchmarks primarily on $d \leq 60$ (Sonar, Ionosphere);
+GBNRS reports results on up to $d = 166$ (Musk1).  Whether any of these
+acceleration techniques survive at $d \sim 10^3$ (genomics) is unknown
+and constitutes an open problem (Section~\ref{sec:open}).

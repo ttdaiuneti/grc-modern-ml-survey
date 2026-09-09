@@ -1,0 +1,141 @@
+\section{Research Trends and Emerging Directions}
+\label{sec:trends}
+
+Sections~\ref{sec:failure} and~\ref{sec:methodology} document what tends
+to go wrong when modern frameworks enter the GrC pipeline.  This section
+takes a constructive view: three research directions are showing sustained
+momentum and---when pursued carefully---genuine potential.  We assess each
+against the Pattern~A/B/C diagnostic and identify the precise conditions
+under which a contribution would be non-trivial.
+
+%-----------------------------------------------------------------------
+\subsection{Incremental and Stream-Aware Feature Selection}
+\label{sec:trend_incremental}
+%-----------------------------------------------------------------------
+
+The dominant evaluation setting in the GrC literature---a static decision
+table of a few hundred objects---does not reflect the conditions under which
+rough-set feature selection is most useful in practice.  Real data pipelines
+in network intrusion detection, sensor fusion, and clinical monitoring produce
+objects continuously; re-running a full forward-greedy reduct search after
+each batch is infeasible.
+
+Two recent lines address this directly.
+Zhang et al.~\cite{Zhang2023TKDEincremental} (TKDE~2023, 50 citations)
+develop an incremental GB-NRS algorithm that tracks which granular balls
+are affected by an arriving batch $\Delta\mathcal{U}$ and updates attribute
+significance locally, achieving $O(|\Delta\mathcal{U}| \cdot |\mathcal{U}|)$
+update cost versus $O(|\mathcal{U}|^2 d)$ for a full re-run---a factor of
+roughly $|\mathcal{U}|/d$ speedup.  Qian et al.~\cite{Qian2023InfoFusion}
+(Information Fusion~2023, 46 citations) extend a similar idea to
+partial-label settings, where arriving objects may carry uncertain class
+memberships.
+
+The algorithmic contribution---maintaining granular-ball membership lists
+across updates---is real and practically useful.  The Pattern~C risk, noted
+in Section~\ref{sec:geo_emerging}, is that evaluations report only time, not
+reduct quality.  A non-trivial theoretical contribution would provide a bound
+of the form
+\[
+  \Pr\bigl[R_{t+1} \neq R^*_{t+1}\bigr] \leq f\!\left(\frac{|\Delta\mathcal{U}|}{|\mathcal{U}|},\,
+  \gamma(R^*_t),\, \tau\right),
+\]
+where $R^*_{t+1}$ is the globally optimal reduct on
+$\mathcal{U}\cup\Delta\mathcal{U}$ and $\gamma(R^*_t)$ is the dependency
+degree of the current reduct.  Intuitively: if the current reduct has a large
+dependency margin and the arriving batch is small, a local update is likely to
+remain globally optimal.  Formalising this in terms of the neighbourhood
+graph's stability under batch insertion is an open problem
+(Section~\ref{sec:open}).
+
+\paragraph{Conditions for a non-trivial contribution.}
+A new incremental GrC paper should (a) bound reduct deviation, not only report
+speedup; (b) include a full-batch re-run baseline on accuracy (not just time);
+(c) test on a genuinely streaming benchmark with at least 10 update rounds.
+
+%-----------------------------------------------------------------------
+\subsection{Three-Way Decision as a Payoff-Function Layer}
+\label{sec:trend_3wd}
+%-----------------------------------------------------------------------
+
+Three-way decision (3WD) adds a \emph{deferred} option to the binary
+positive/negative split, partitioning $\mathcal{U}$ into $\mathrm{POS}$
+(accept), $\mathrm{NEG}$ (reject), and $\mathrm{BND}$ (boundary, withhold
+decision).  Introduced by Yao~\cite{Yao2010threeway} as a cost-minimising Bayesian
+partition, 3WD is now one of the most-cited paradigms in the rough set
+community (1321 citations, retrieved September 2025).
+
+3WD does not change the shape of the granule---it changes the payoff function
+applied after the granule determines region membership.  Under a cost
+matrix $(\lambda_{\mathrm{PP}}, \lambda_{\mathrm{NP}}, \lambda_{\mathrm{BP}},
+\lambda_{\mathrm{PN}}, \lambda_{\mathrm{NN}}, \lambda_{\mathrm{BN}})$,
+the expected risk of assigning an object to each region is computed, and the
+region with minimum risk is chosen.  Yang et al.~\cite{Xia2024TFS3WC} combine
+this with GBNRS: the granule's purity score provides the posterior estimate
+required by the 3WD risk calculation.  The integration is natural and yields
+a principled cost-sensitive feature selection pipeline.
+
+The value of 3WD-GrC is concentrated in domains where misclassification costs are
+asymmetric and known: medical screening (missing a positive case costs far
+more than a false alarm), network intrusion detection, rare-event prediction.
+In these settings, reporting the boundary region size alongside the cost-sensitive
+accuracy provides a decision-support function that standard NRS cannot replicate.
+
+\paragraph{Conditions for a non-trivial contribution.}
+Two patterns must be checked before claiming a 3WD-GrC method outperforms
+standard NRS.
+\emph{Pattern~A}: at symmetric costs and $\tau \to 1$, the 3WD regions reduce
+to the NRS positive/negative/boundary regions---the method adds no information
+beyond what standard NRS already provides.  The cost matrix must be
+demonstrably non-symmetric, and sensitivity to cost-matrix choice must be
+reported.
+\emph{Pattern~C}: evaluating solely on cost-sensitive accuracy (which 3WD
+directly optimises) while ignoring 0-1 accuracy and boundary region size
+creates a self-confirming benchmark.  A fair evaluation reports all three
+metrics: cost-sensitive accuracy, standard 0-1 accuracy on classified objects,
+and the fraction of objects assigned to $\mathrm{BND}$ (a large boundary
+region is a cost, not a benefit).
+
+One question remains open beneath all of this.
+The cost matrix is currently chosen by the experimenter, not derived from
+data.  Connecting the optimal cost matrix to the dataset's class-overlap
+profile~\cite{Santos2022overlap} and the Bayes error estimate would make
+3WD-GrC self-configuring and would close the Pattern~A gap at the same time.
+We list this as an open problem in Section~\ref{sec:open}.
+
+%-----------------------------------------------------------------------
+\subsection{Neural-Augmented Granular Computing}
+\label{sec:trend_neural}
+%-----------------------------------------------------------------------
+
+A third trend feeds learned representations into the GrC pipeline: instead
+of operating on raw feature vectors, the granule is defined in a latent
+space produced by a neural encoder.
+Zhang et al.~\cite{Zhang2025NN} use an ANN to assign per-feature scale
+weights before computing granular ball purity, allowing the scale of each
+attribute to vary across the feature space.
+Xie et al.~\cite{Xie2024TPAMI} (MGNR, TPAMI~2024, 57 citations) extract
+multi-granularity neighbourhood representations across multiple scales
+simultaneously, achieving state-of-the-art accuracy on large benchmarks.
+
+If the neural encoder is trained to separate classes, the latent granule
+becomes semantically meaningful rather than geometrically arbitrary.  This
+directly addresses Pattern~B: a well-trained encoder maps features to a space
+where Euclidean distance reflects class structure, breaking the correlation
+between a feature's scale and its granule-based importance score.
+
+The risk persists, however, if the encoder is trained unsupervised (e.g., an
+autoencoder) or if the latent representation is not verified to be
+class-discriminative: in that case, the granule in latent space still tracks
+magnitude properties of the learned representation rather than class structure.
+Any neural-GrC paper must verify that the latent distance is not dominated by
+the largest-variance latent dimension---the same diagnostic applied in
+Section~\ref{sec:patB} for PAI, applied now to the neural representation.
+
+\paragraph{Conditions for a non-trivial contribution.}
+A neural-GrC paper should (a) compare against GBNRS on the same
+benchmark with the same number of selected features; (b) verify that the
+latent space is class-discriminative (e.g., silhouette score or linear
+separability); (c) ablate the encoder: does removing the neural component
+(reverting to raw features) substantially degrade results, or does the gain
+come from the granule geometry rather than the representation?

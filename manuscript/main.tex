@@ -1,0 +1,184 @@
+% Survey — IJAR / Elsevier CAS format (cas-sc.cls)
+% Compile: pdflatex main && bibtex main && pdflatex main && pdflatex main
+
+\documentclass[a4paper,fleqn]{cas-sc}
+
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage{doi}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{unicode-math}
+\setmathfont{STIX Two Math}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[section]{placeins}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,shapes.geometric}
+\emergencystretch=3em
+
+% cas-sc renders corresponding-author mark as $\ast$ (U+2217), which
+% Preview.app on macOS displays as "<" under XeLaTeX font embedding.
+% Remap \ast to use the text-font asterisk (*) so the glyph is correct.
+\AtBeginDocument{\renewcommand{\ast}{\text{*}}}
+
+\hypersetup{colorlinks=true,allcolors=blue,
+  pdftitle={When Modern Mathematics Meets Granular Computing},
+  pdfauthor={Thanh Dai Tran and Long Giang Nguyen},
+  pdfsubject={Granular computing; rough sets; feature selection; survey},
+  pdfkeywords={Granular computing; Neighbourhood rough sets; Feature selection;
+               Persistent homology; Negative results; Benchmark methodology}
+}
+
+\pdfstringdefDisableCommands{%
+  \def\corref#1{}%
+  \def\cnotenum#1{}%
+  \def\fnref#1{}%
+}
+
+% ── Notation shortcuts ────────────────────────────────────────────────────────
+\newcommand{\U}{\mathcal{U}}
+\newcommand{\C}{\mathcal{C}}
+\newcommand{\POS}{\mathrm{POS}}
+\newcommand{\LOW}{\underline{\mathrm{apr}}}
+\newcommand{\UPP}{\overline{\mathrm{apr}}}
+\newcommand{\RED}{\mathrm{RED}}
+\newcommand{\DEP}{\gamma}
+\newcommand{\NB}[1]{\delta_{#1}}
+
+\begin{document}
+\let\WriteBookmarks\relax
+\def\floatpagepagefraction{.8}
+\def\textpagefraction{.1}
+\setlength{\textfloatsep}{10pt plus 2pt minus 2pt}
+\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{8pt plus 2pt minus 2pt}
+\setlength{\dbltextfloatsep}{10pt plus 2pt minus 2pt}
+\setlength{\dblfloatsep}{8pt plus 2pt minus 2pt}
+
+\shorttitle{Modern Mathematics Meets Granular Computing}
+\shortauthors{T.D.~Tran and L.G.~Nguyen}
+
+\title[mode=title]{When Modern Mathematics Meets Granular Computing:
+A Critical Survey of What Works, What Fails, and Why}
+
+\author[1]{Thanh Dai Tran}
+\cormark[1]
+\corref{cor1}
+\ead{ttdaiuneti@gmail.com}
+\credit{Conceptualization, Methodology, Software, Validation, Formal analysis,
+        Investigation, Writing -- original draft, Writing -- review \& editing}
+
+\author[2]{Long Giang Nguyen}
+\ead{nlgiang@ioti.vn}
+\credit{Conceptualization, Methodology, Writing -- review \& editing,
+        Project administration}
+
+\affiliation[1]{organization={University of Economics and Technology for
+                Industries (UNETI)},
+            addressline={456 Minh Khai, Hai Ba Trung District},
+            city={Hanoi},
+            postcode={100000},
+            country={Vietnam}}
+
+\affiliation[2]{organization={Institute of Information Technology,
+                Vietnam Academy of Science and Technology (VAST)},
+            addressline={18 Hoang Quoc Viet, Cau Giay District},
+            city={Hanoi},
+            postcode={100000},
+            country={Vietnam}}
+
+\cortext[cor1]{Corresponding author.}
+
+\begin{abstract}
+Granular computing has spent two decades developing a principled toolkit
+for handling uncertainty in decision tables: equivalence and neighbourhood
+granules, lower and upper approximations, positive regions, and attribute
+reducts.  A recent wave of papers imports frameworks from modern mathematics
+and machine learning---persistent homology, fuzzy topology, conformal
+prediction, weak supervision---into this core machinery.  We present a
+critical survey of this wave, organised around a single thesis: when a
+modern framework is imported into granular computing's core pipeline, the
+resulting quantity tends either (a) to reduce to an already-known granular
+quantity, (b) to be dominated by geometry of the feature distribution that is
+orthogonal to the decision problem---of which measurement scale is the
+special case our bound captures---or (c) to win only where the evaluation
+is aligned with its own objective---either algebraically, or through a free
+parameter of the metric that the analyst sets.  These three failure patterns explain why the volume of
+``GrC + X'' papers has grown rapidly while progress has been slower.
+Our survey is unusual in that the thesis is backed by our own negative-result
+experiments: $4{,}975$ attribute-importance measurements, $30{,}100$
+downstream classification records, and $995$ structure-preservation
+measurements across ten UCI datasets, all released per-fold for
+reproducibility.  A further ablation shows that the one metric on which the
+imported method appears to lead reverses its verdict when that metric's own
+neighbourhood parameter is varied over unchanged feature subsets---an
+instance of the evaluation problem the survey documents.  Beyond cataloguing the state of the art across four axes
+(granule geometry, topological formalisms, computational efficiency,
+sufficiency and limits), we document a methodological pattern in the field:
+comparisons on 3-NN/SVM with default hyperparameters on small UCI benchmarks
+often cannot detect differences beyond measurement noise, yet results are
+reported as improvements without significance testing.  Coding 22 papers at
+full text---13 of them a majority of our granule-geometry corpus---we find
+none that reports an all-features baseline, dispersion, a significance test
+and a hyperparameter ablation together; the per-paper coding is released with
+a supporting quotation for every judgement.
+\end{abstract}
+
+\begin{highlights}
+\item Three recurring failure patterns (reduction, label-orthogonal geometry,
+      self-optimising evaluation) explain the gap between publication volume
+      and progress in the GrC literature.
+\item A persistence-based attribute importance score is shown to be
+      uncorrelated with neighbourhood-based discriminability
+      (Fisher-$z$ $\bar\rho = -0.060$, 95\% CI $[-0.21,\,+0.09]$)
+      and statistically indistinguishable from a null baseline.
+\item $4{,}975$ importance measurements and $30{,}100$ classification records
+      are released per-fold for reproducibility.
+\item A six-point minimum reporting standard is proposed for GrC
+      feature-selection experiments.
+\item Nine open problems are identified across four axes,
+      with explicit barriers and requirements for a solution.
+\end{highlights}
+
+\begin{keywords}
+Granular computing \sep Neighbourhood rough sets \sep Feature selection \sep
+Attribute reduction \sep Persistent homology \sep Negative results \sep
+Benchmark methodology
+\end{keywords}
+
+\maketitle
+
+% ── Theorem-like environments (after \maketitle, as required by cas-sc) ───────
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+\newtheorem{lemma}{Lemma}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+\newtheorem{example}{Example}
+
+% ── Body sections ─────────────────────────────────────────────────────────────
+\input{sections/s1_intro}
+\input{sections/s2_background}
+\input{sections/s3_granule_geometry}
+\input{sections/s4_topology}
+\input{sections/s5_efficiency}
+\input{sections/s6_sufficiency}
+\input{sections/s7_failure_patterns}
+\input{sections/s8_methodology}
+\input{sections/s9_trends}
+\input{sections/s9_open}
+\input{sections/s10_conclusion}
+
+\input{sections/appendix_a}
+
+\printcredits
+
+\bibliographystyle{cas-model2-names}
+\bibliography{refs}
+
+\end{document}
