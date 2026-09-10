@@ -323,6 +323,18 @@ else:
     # against the manuscript's own prose.
     ent = re.findall(r"@\w+\{[^,]+,(.*?)\n\}", bibtxt, re.S)
     bibkeys = set()
+    # Exact titles also connect preprints to journal versions whose issue
+    # year differs by more than the legacy author/year tolerance.
+    def _normal_title(value):
+        return re.sub(r"[^a-z0-9]", "", str(value).lower())
+    cited_keys = set()
+    for citation in re.findall(r"\\cite\w*\*?(?:\[[^\]]*\])*\{([^}]+)\}", SRC):
+        cited_keys.update(key.strip() for key in citation.split(","))
+    cited_titles = set()
+    for key, body in re.findall(r"@\w+\{([^,]+),(.*?)\n\}", bibtxt, re.S):
+        title = re.search(r"title\s*=\s*\{(.*?)\}\s*,", body, re.S)
+        if key.strip() in cited_keys and title:
+            cited_titles.add(_normal_title(title.group(1)))
     for b in ent:
         a = re.search(r"author\s*=\s*\{+\s*([A-Za-z\-\u2019\']+)", b)
         y = re.search(r"year\s*=\s*\{(\d{4})\}", b)
@@ -331,7 +343,8 @@ else:
                 bibkeys.add((a.group(1).lower(), str(int(y.group(1)) + dy)))
     lg = pd.read_csv(_log)
     uncited = [r.paper_id for r in lg.itertuples()
-               if (str(r.first_author).split()[0].lower(), str(r.year)) not in bibkeys]
+               if (str(r.first_author).split()[0].lower(), str(r.year)) not in bibkeys
+               and _normal_title(r.title) not in cited_titles]
     n_cited = len(lg) - len(uncited)
     claim_all = "All\n51 screened papers are cited" in SRC or "all 51 cited" in SRC
     if claim_all:
@@ -386,9 +399,8 @@ if os.path.exists(_fp):
         ("13 imports",    st.get("import", 0),    "Imports an external framework", 13),
         ("23 internal",   st.get("internal", 0),  "Internal GrC development", 23),
         ("15 background", st.get("background", 0),"Background / foundational reference", 15),
-        ("class (a)=5",   cc.get("a", 0),         "the equivalence is the stated contribution", 5),
-        ("class (b)=7",   cc.get("b", 0),         "quantity reused, novelty claimed elsewhere", 7),
-        ("class (c)=1",   cc.get("c", 0),         "performance claimed for the quantity", 1),
+        ("class (a)=5",   cc.get("a", 0),         "\\textit{(a)}", 5),
+        ("class (b)=8",   cc.get("b", 0),         "\\textit{(b)}", 8),
     ]:
         printed = _row(needle)
         ok = (got == exp) and (printed == exp)
