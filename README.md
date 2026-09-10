@@ -82,7 +82,7 @@ the scripts look for the CSVs.
 | `raw_knn_scale.csv` | 5,970 | `knn_overlap` and `trustworthiness` recomputed over K ∈ {3,5,10,20,30,50} on the *same* feature subsets, to test whether the metric's own scale parameter decides the verdict. |
 | `literature_log.csv` | 51 | Systematic-review log. `read_level` is `abstract` for all entries; see the paper's Appendix A for what that does and does not support. |
 | `fulltext_coding.csv` | 22 | Reporting-practice coding of papers read at full text. Every cell carries the quotation it rests on in the `evidence` column, so an individual judgement can be overturned without re-reading the paper. |
-| `coding/failure_pattern_coding.csv` | 51 | Import-status and, for the 13 cross-framework imports, claim-class coding (a/b/c) behind the prevalence table. All 13 imports read at full text; the `provenance` column gives venue, pages and the definition/theorem each assignment rests on. See `coding/CODING_METHODOLOGY.md`. |
+| `coding/failure_pattern_coding.csv` | 51 | Screening status and descriptive claim classes: 5 theoretical studies and 8 methodological adaptations. IFT + wrapper is class b, not a failure case. See `coding/CODING_METHODOLOGY.md` and `coding/FULLTEXT_EVIDENCE_REVIEW.md` for source anchors and remaining evidence limitations. |
 
 ## Known limitations
 
