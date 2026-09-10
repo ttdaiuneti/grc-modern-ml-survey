@@ -3,7 +3,7 @@ Generate Figure 1: Research activity per axis (publication year distribution).
 Output: figures/activity_by_axis.pdf
 """
 
-import os, matplotlib
+import os, csv, matplotlib
 matplotlib.use("Agg")
 # Embed real (TrueType) fonts, not Type 3 bitmaps, so the PDF passes
 # publisher preflight.
@@ -17,80 +17,35 @@ from collections import defaultdict
 OUT = os.environ.get("GRC_FIGURES_OUT", "figures")
 os.makedirs(OUT, exist_ok=True)
 
-# ── Paper → (year, axis) mapping ──────────────────────────────────────────────
-# Axes: 1=Granule Geometry, 2=Topology, 3=Efficiency, 4=Sufficiency/Limits
-# Only survey-included papers (those addressing the GrC core pipeline);
-# pure background/methodology references are omitted.
+DATA = os.environ.get("GRC_DATA",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "data") + os.sep)
 
-PAPERS = {
-    # Axis 1 — Granule Geometry
-    "Hu2008NRS":               (2008, 1),
-    "JensenShen2007TFS":       (2007, 1),
-    "Cornelis2010IS":          (2010, 1),
-    "QianLiangYaoDang2010MGRS":(2010, 1),
-    "LinQianLi2012NMGRS":      (2012, 1),
-    "Yao2010threeway":         (2010, 1),
-    "Xia2020GBNRS":            (2020, 1),
-    "Wang2020selfinfo":        (2020, 1),
-    "Xia2021KBSselector":      (2021, 1),
-    "Hu2021WNRS":              (2021, 1),
-    "Peng2022VPGB":            (2022, 1),
-    "Xia2022EfficientGB":      (2022, 1),
-    "Ju2023bidirectional":     (2023, 1),
-    "Li2023TFS":               (2023, 1),
-    "Wang2023ESWA":            (2023, 1),
-    "Xia2023GBRS":             (2023, 1),
-    "Qian2023InfoFusion":      (2023, 1),
-    "Sun2023KBS":              (2023, 1),
-    "Zhang2023TKDEincremental":(2023, 1),
-    "Xia2024TFS3WC":           (2024, 1),
-    "XiaDeyou2024TFS":         (2024, 1),
-    "Xie2024TPAMI":            (2024, 1),
-    "Qian2024directional":     (2024, 1),
-    "Sun2024TFS":              (2024, 1),
-    "Zhang2025NN":             (2025, 1),
-    "Sun2025EAAI":             (2025, 1),
-    "Nguyen2026MHMG":          (2026, 1),
+# ── Axis per paper is read from the released corpus log, not hand-copied ─────
+# Axes: 1=Granule Geometry, 2=Topology (2a+2b merged), 3=Efficiency,
+# 4=Sufficiency/Limits (the single truc=5 row is folded in here too --
+# it is a Gini-index NRS variant with no home axis of its own).
+# This keeps the figure from silently drifting out of sync with the corpus
+# whenever literature_log.csv gains, loses or re-axes a paper.
 
-    # Axis 2 — Topological Formalisms (included papers only; background
-    # references CohenSteiner2007, Ghrist2008, Carlsson2009, Chazal2009,
-    # Edelsbrunner2010, Otter2017, ChazalMichel2021, HenselMoorRieck2021,
-    # Pun2022 are cited for context and omitted from the figure)
-    "LaiZhang2006":            (2006, 2),
-    "Zhu2007covering":         (2007, 2),
-    "DeerCornelisYao2016":     (2016, 2),
-    "Kindelan2021TDABC":       (2021, 2),
-    "ElSafty2021":             (2021, 2),
-    "AlShami2022topology":     (2022, 2),
-    "AlShami2022supra":        (2022, 2),
-    "Yao2023Alexandrov":       (2023, 2),
-    "DaiTT2024IFT":            (2024, 2),
-    "AlShami2025delta":        (2025, 2),
-    "Su2025TDA":               (2025, 2),
+def axis_of(truc):
+    truc = truc.strip()
+    if truc.startswith("2"):
+        return 2
+    if truc == "5":
+        return 4
+    return int(truc)
 
-    # Axis 3 — Computational Efficiency
-    "YuLiu2004":               (2004, 3),
-    "Dai2018TFS":              (2018, 3),
-    "Xia2021SLR":              (2021, 3),
-    "Sowkuntla2021DARA":       (2021, 3),
-    "Zheng2021grouping":       (2021, 3),
-    "Wan2023TFS":              (2023, 3),
-    "Chen2024cascade":         (2024, 3),
-    "Luo2025hash":             (2025, 3),
+with open(os.path.join(DATA, "literature_log.csv")) as f:
+    rows = list(csv.DictReader(f))
 
-    # Axis 4 — Sufficiency & Limits (background: CoverHart1967,
-    # Drakopoulos1995 omitted from figure)
-    "Han2024MFII":             (2024, 4),
-    "Santos2022overlap":       (2022, 4),
-    "Zhang2022PWS":            (2022, 4),
-    "Angelopoulos2023CP":      (2023, 4),
-    "Wheat2025BER":            (2025, 4),
-}
-
-# ── Count by (year, axis) ─────────────────────────────────────────────────────
 counts = defaultdict(lambda: defaultdict(int))
-for key, (yr, ax) in PAPERS.items():
+for r in rows:
+    yr = int(r["year"])
+    ax = axis_of(r["truc"])
     counts[yr][ax] += 1
+
+print(f"Loaded {len(rows)} corpus papers from literature_log.csv "
+      f"(axis totals: {dict(sorted((a, sum(counts[y][a] for y in counts)) for a in (1,2,3,4)))})")
 
 # Show only 2006-2026 (exclude ancient foundational refs 1967, 1995)
 years = list(range(2006, 2027))
@@ -144,4 +99,6 @@ plt.tight_layout(pad=0.4)
 plt.savefig(f"{OUT}/activity_by_axis.pdf", dpi=300, bbox_inches="tight")
 plt.savefig(f"{OUT}/activity_by_axis.png", dpi=200, bbox_inches="tight")
 print(f"Saved {OUT}/activity_by_axis.pdf and .png")
-print(f"Total papers plotted: {sum(len([p for p,v in PAPERS.items() if v[1]==a]) for a in axes)}")
+plotted = int(data.sum())
+print(f"Total papers plotted: {plotted} (of {len(rows)} in the corpus; "
+      f"{len(rows) - plotted} fall outside {years[0]}-{years[-1]} and are not shown)")
