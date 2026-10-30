@@ -13,3 +13,9 @@ manuscript/*.fdb_latexmk
 manuscript/*.xdv
 manuscript/*.spl
 manuscript/*.abs
+
+# Regenerated dataset cache (datasets.py rebuilds it from the UCI sources)
+code/experiments/standardized/
+# Publisher full texts are never released
+second_coding/fulltext/
+tables/

@@ -1,11 +1,15 @@
 """E1/E2 analysis. All numbers derived from raw_*.csv (single source of truth).
 Mean/std computed here via np.std from raw per-fold/per-seed rows, never stored."""
+import os
+DATA = os.environ.get("GRC_DATA",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                 "..", "..", "data") + os.sep)
 import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr, wilcoxon
 
-imp = pd.read_csv("raw_importance.csv")
-down = pd.read_csv("raw_downstream.csv")
+imp = pd.read_csv(os.path.join(DATA, "raw_importance.csv"))
+down = pd.read_csv(os.path.join(DATA, "raw_downstream.csv"))
 datasets = list(imp.dataset.unique())
 
 print("=" * 70)

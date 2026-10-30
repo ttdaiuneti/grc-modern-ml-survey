@@ -2,11 +2,15 @@
 k=d where all methods trivially equal). Win/tie/loss of PAI vs each baseline per
 dataset, on INDEPENDENT metrics (trustworthiness, knn_overlap, cluster_ari).
 wass_persist reported separately (PAI-favoring)."""
+import os
+DATA = os.environ.get("GRC_DATA",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                 "..", "..", "data") + os.sep)
 import numpy as np
 import pandas as pd
 from scipy.stats import wilcoxon
 
-df = pd.read_csv("raw_structure.csv")
+df = pd.read_csv(os.path.join(DATA, "raw_structure.csv"))
 datasets = list(df.dataset.unique())
 METHODS = ["nrs", "relieff", "mutual_info", "variance"]
 # higher-is-better metrics; wass_persist is lower-is-better

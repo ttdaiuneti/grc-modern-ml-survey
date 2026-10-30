@@ -28,7 +28,17 @@ NAME = {'iris':'Iris','wine':'Wine','ionosphere':'Ionosphere',
 
 from scipy import stats
 
-margins, all_accs, best_accs, labels, pvals = [], [], [], [], []
+margins, all_accs, best_accs, labels, pvals, pcorr = [], [], [], [], [], []
+
+
+def corrected_resampled_t(diff, test_train_ratio=0.25):
+    """Corrected resampled t-test (Nadeau & Bengio 2003), as in gen_tables.py."""
+    J, v = len(diff), np.var(diff, ddof=1)
+    if v == 0:
+        return 1.0
+    t = np.mean(diff) / np.sqrt((1.0 / J + test_train_ratio) * v)
+    return 2 * stats.t.sf(abs(t), J - 1)
+
 
 for d_name in DATASETS:
     sub = ds[ds.dataset == d_name]
@@ -41,15 +51,21 @@ for d_name in DATASETS:
     diff = best[j] - all_f[j]
     margins.append(diff.mean() * 100)
     pvals.append(1.0 if diff.abs().sum() == 0 else stats.wilcoxon(best[j], all_f[j]).pvalue)
+    pcorr.append(corrected_resampled_t(diff.values))
     all_accs.append(all_f[j].mean() * 100)
     best_accs.append(best[j].mean() * 100)
     labels.append(NAME[d_name])
 
 # Holm step-down correction over the ten datasets
-order, prev, p_holm = np.argsort(pvals), 0.0, [0.0] * len(pvals)
-for rank, i in enumerate(order):
-    prev = min(1.0, max(prev, (len(pvals) - rank) * pvals[i]))
-    p_holm[i] = prev
+def holm(pv):
+    order, prev, out = np.argsort(pv), 0.0, [0.0] * len(pv)
+    for rank, i in enumerate(order):
+        prev = min(1.0, max(prev, (len(pv) - rank) * pv[i]))
+        out[i] = prev
+    return out
+
+p_holm = holm(pvals)        # naive fold-level Wilcoxon
+p_corr = holm(pcorr)        # corrected resampled t-test
 
 # ── Plot ──────────────────────────────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(7, 3.4))
@@ -59,15 +75,15 @@ SIG = 0.05
 
 ax.axhline(0, color='gray', linewidth=0.8, linestyle='--')
 
-# Lollipop stems: colour by Holm-corrected significance, not by an eyeballed band
-for xi, m, ph in zip(x, margins, p_holm):
-    color = '#2166ac' if ph < SIG else '#aaaaaa'
+# Lollipop stems: colour by the corrected resampled t-test (Holm); an open
+# triangle marks gains that only the naive fold-level Wilcoxon separates.
+for xi, m, ph, pc in zip(x, margins, p_holm, p_corr):
+    color = '#2166ac' if pc < SIG else '#aaaaaa'
     ax.vlines(xi, 0, m, colors=color, linewidth=1.8)
     ax.plot(xi, m, 'o', color=color, markersize=7, zorder=4)
-    if ph < SIG:
-        ax.annotate(f'$p$={ph:.3f}' if ph >= 0.001 else '$p<$0.001',
-                    xy=(xi, m), xytext=(0, 6), textcoords='offset points',
-                    ha='center', fontsize=6.5, color='#2166ac')
+    if ph < SIG and pc >= SIG:
+        ax.plot(xi, m + 0.65, marker='v', markersize=5.5, markerfacecolor='none',
+                markeredgecolor='#b2182b', linestyle='none', zorder=5)
 
 # Annotate Heart (k*=d)
 heart_idx = labels.index('Heart')
@@ -84,18 +100,21 @@ ax.yaxis.grid(True, linewidth=0.4, alpha=0.5)
 ax.set_axisbelow(True)
 ax.spines[["top", "right"]].set_visible(False)
 
-blue_patch = mpatches.Patch(color='#2166ac',
-                            label='Gain significant (paired Wilcoxon, Holm $p<0.05$)')
-gray_patch = mpatches.Patch(color='#aaaaaa',
-                            label='Gain not distinguishable from zero')
-ax.legend(handles=[blue_patch, gray_patch],
-          fontsize=7.5, loc='upper right', framealpha=0.9)
+from matplotlib.lines import Line2D
+handles = [mpatches.Patch(color='#aaaaaa',
+                          label='Not separated from zero (corrected resampled $t$, Holm)'),
+           Line2D([], [], marker='v', markersize=5.5, markerfacecolor='none',
+                  markeredgecolor='#b2182b', linestyle='none',
+                  label='Separated only by fold-level Wilcoxon (Holm $p<0.05$)')]
+if any(pc < SIG for pc in p_corr):
+    handles.insert(0, mpatches.Patch(color='#2166ac',
+                   label='Gain separated (corrected resampled $t$, Holm $p<0.05$)'))
+ax.legend(handles=handles, fontsize=7.5, loc='upper right', framealpha=0.9)
 
 plt.tight_layout(pad=0.4)
 plt.savefig(f"{OUT}/margin_plot.pdf", dpi=300, bbox_inches="tight")
 plt.savefig(f"{OUT}/margin_plot.png", dpi=200, bbox_inches="tight")
 print(f"Saved {OUT}/margin_plot.pdf and .png")
-for l, m, a, b, ph in zip(labels, margins, all_accs, best_accs, p_holm):
-    flag = "SIG" if ph < 0.05 else "ns"
+for l, m, a, b, ph, pc in zip(labels, margins, all_accs, best_accs, p_holm, p_corr):
     print(f"  {l:14s} all={a:.1f}%  best={b:.1f}%  margin={m:+.2f}pp  "
-          f"p_holm={ph:.4f}  {flag}")
+          f"p_wilcoxon_holm={ph:.4f}  p_corrected_holm={pc:.4f}")

@@ -1,4 +1,4 @@
-"""MAJOR-9 discriminating test: does PAI's knn_overlap advantage track the
+"""Discriminating test: does PAI's knn_overlap advantage track the
 neighbourhood scale, as Pattern C's explanation requires?"""
 import os
 DATA = os.environ.get("GRC_DATA",
@@ -9,8 +9,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-df = pd.read_csv(os.path.join(HERE, "raw_knn_scale.csv"))
+df = pd.read_csv(os.path.join(DATA, "raw_knn_scale.csv"))
 DATASETS = ['iris', 'wine', 'ionosphere', 'sonar', 'glass',
             'ecoli', 'heart', 'parkinsons', 'seeds', 'wdbc']
 

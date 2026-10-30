@@ -110,6 +110,18 @@ def _to_springer(label, body):
     return "\n".join(out)
 
 
+def corrected_resampled_t(diff, test_train_ratio=0.25):
+    """Two-sided p of the corrected resampled t-test (Nadeau & Bengio 2003;
+    Bouckaert & Frank 2004) for J = repeats x folds paired differences from
+    repeated k-fold CV: the variance is inflated by n_test/n_train (1/4 for
+    5-fold) to account for overlapping training sets."""
+    J, v = len(diff), np.var(diff, ddof=1)
+    if v == 0:
+        return 1.0
+    t = np.mean(diff) / np.sqrt((1.0 / J + test_train_ratio) * v)
+    return 2 * stats.t.sf(abs(t), J - 1)
+
+
 def holm(pvals):
     """Holm step-down adjusted p-values, preserving input order."""
     order, prev, out = np.argsort(pvals), 0.0, [0.0] * len(pvals)
@@ -140,7 +152,7 @@ def write(label, body):
 
 
 # ── tab:allfeats — best-k vs all-features, with paired test ──────────────────
-rows, praw = [], []
+rows, praw, pcorr = [], [], []
 for d in DATASETS:
     sub = ds[ds.dataset == d]
     allf = sub[sub.method == 'all_features'].set_index(['seed', 'fold'])['acc_3nn']
@@ -152,6 +164,7 @@ for d in DATASETS:
     diff = best[j] - allf[j]
     praw.append(1.0 if diff.abs().sum() == 0
                 else stats.wilcoxon(best[j], allf[j]).pvalue)
+    pcorr.append(corrected_resampled_t(diff.values))
     rows.append(dict(name=NAME[d], n=int(sub.n.iloc[0]), d=int(sub.d.iloc[0]),
                      am=allf[j].mean() * 100, asd=allf[j].std(ddof=1) * 100,
                      bm=best[j].mean() * 100, bsd=best[j].std(ddof=1) * 100,
@@ -161,21 +174,25 @@ body = [r"""\begin{table}[!htbp]
 \caption{Best-$k$ 3-NN accuracy (maximised over methods and
 $k \in \{1,\ldots,d\}$) versus all-features baseline.  Mean $\pm$ SD over
 5~folds $\times$ 5~seeds.  $\Delta$ is the margin in percentage points;
-$p_{\mathrm{Holm}}$ is a paired Wilcoxon signed-rank test over the 25
-matched fold--seed pairs, Holm-corrected for the ten comparisons.
+$p^{\mathrm{W}}$ is a paired Wilcoxon signed-rank test over the 25
+matched fold--seed pairs, which treats them as independent; $p^{\mathrm{C}}$
+is the corrected resampled $t$-test, which allows for the overlap of training
+sets across folds.  Both are Holm-corrected for the ten comparisons and both
+are exploratory, because $(\text{method},k)$ is chosen on the same results.
 $\dagger$ marks the dataset where best-$k = d$, i.e.\ no strict subset
 strictly outperforms the full feature set (on Heart the maximum is an exact
 tie among several methods, one of which is the full set).}
 \label{tab:allfeats}
 \centering\small
 \setlength\tabcolsep{4pt}
-\begin{tabular}{lrrccrrr}
+\begin{tabular}{lrrccrrrr}
 \toprule
-Dataset & $n$ & $d$ & All-feat acc. & Best-$k$ acc. & $k^*$ & $\Delta$ (pp) & $p_{\mathrm{Holm}}$ \\
+Dataset & $n$ & $d$ & All-feat acc. & Best-$k$ acc. & $k^*$ & $\Delta$ (pp) & $p^{\mathrm{W}}$ & $p^{\mathrm{C}}$ \\
 \midrule"""]
-for r, ph in zip(rows, holm(praw)):
+fmt_p = lambda ph: r"$<0.001$" if ph < 0.001 else f"${ph:.3f}$"
+for r, ph, pc in zip(rows, holm(praw), holm(pcorr)):
     dag = r"$\dagger$" if r['k'] == r['d'] else ""
-    ps = r"$<0.001$" if ph < 0.001 else f"${ph:.3f}$"
+    ps = fmt_p(ph) + " & " + fmt_p(pc)
     body.append(f"{r['name']:11s}& {r['n']:3d} & {r['d']:2d} & "
                 f"${r['am']:.1f} \\pm {r['asd']:.1f}$\\% & "
                 f"${r['bm']:.1f} \\pm {r['bsd']:.1f}$\\% & "
@@ -184,26 +201,37 @@ body.append("\\bottomrule\n\\end{tabular}\n\\end{table}")
 write("tab_allfeats", "\n".join(body))
 
 # ── tab:rho — Spearman PAI vs NRS ───────────────────────────────────────────
-body = [r"""\begin{table}[!htbp]
-\caption{Spearman $\rho$ between PAI and NRS importance rankings per dataset
-(mean importance over 5 seeds before ranking; $d$ = number of attributes,
-which is also the sample size for the Spearman test).
-Note: datasets with $d \leq 7$ cannot reach $p < 0.05$ at any $\rho$.}
-\label{tab:rho}
-\centering\small
-\begin{tabular}{lccc}
-\toprule
-Dataset & $d$ & $\rho$ & $p$-value \\
-\midrule"""]
-rhos = []
+rows_rho, rhos, ds_rho = [], [], []
 for d in DATASETS:
     sub = imp[imp.dataset == d]
     a = sub[sub.method == 'pai'].groupby('attribute_j')['importance_score'].mean()
     b = sub[sub.method == 'nrs'].groupby('attribute_j')['importance_score'].mean()
     c = a.index.intersection(b.index)
     r, pv = stats.spearmanr(a[c], b[c])
-    rhos.append(r)
-    body.append(f"{NAME[d]:11s}& {len(c):2d} & ${r:+.2f}$ & ${pv:.2f}$ \\\\")
+    rhos.append(r); ds_rho.append(len(c))
+    rows_rho.append(f"{NAME[d]:11s}& {len(c):2d} & ${r:+.2f}$ & ${pv:.2f}$ \\\\")
+# heterogeneity of the Fisher-z values (weights d - 3) and a sign test
+_z = np.arctanh(rhos); _w = np.array(ds_rho) - 3.0
+_Q = float((_w * (_z - (_w * _z).sum() / _w.sum()) ** 2).sum())
+_I2 = 100 * (_Q - (len(rhos) - 1)) / _Q
+_pQ = stats.chi2.sf(_Q, len(rhos) - 1)
+_npos = int(sum(r > 0 for r in rhos))
+_psign = stats.binomtest(_npos, len(rhos), 0.5).pvalue
+_words = ['zero','one','two','three','four','five','six','seven','eight','nine','ten']
+body = [r"""\begin{table}[!htbp]
+\caption{Spearman $\rho$ between PAI and NRS importance rankings per dataset
+(mean importance over 5 seeds before ranking; $d$ = number of attributes,
+which is also the sample size for the Spearman test).
+With $d=4$ only $|\rho|=1$ reaches $p<0.05$; with $d=7$, $|\rho|\geq 0.79$ is needed.
+""" + f"Heterogeneity of the Fisher-$z$ values: $Q = {_Q:.1f}$, $I^2 = {_I2:.0f}\\%$ "
+    f"({len(rhos) - 1} df, $p={_pQ:.3f}$).  {_words[_npos].capitalize()} of the ten "
+    f"correlations are positive ($p = {_psign:.2f}$, two-sided binomial)." + r"""}
+\label{tab:rho}
+\centering\small
+\begin{tabular}{lccc}
+\toprule
+Dataset & $d$ & $\rho$ & $p$-value \\
+\midrule"""] + rows_rho
 body.append(r"\midrule")
 body.append(f"Mean (10)  & --- & ${np.mean(rhos):.3f}$ & --- \\\\")
 body.append("\\bottomrule\n\\end{tabular}\n\\end{table}")
@@ -237,10 +265,10 @@ write("tab_pai_range", "\n".join(body))
 # ── tab:structure — structure preservation, all columns over k<d ────────────
 body = [r"""\begin{table}[!htbp]
 \caption{Structure-preservation comparison, PAI vs NRS (10 datasets).
-\texttt{wass\_persist} is lower-is-better (PAI's own metric); the others are
-higher-is-better and are not algebraically tied to PAI's objective.  Note that
-\texttt{trust} and \texttt{knn\_overlap} share a neighbourhood-size parameter,
-fixed here at the conventional $K=10$ and ablated in
+The Wasserstein distance between persistence diagrams is lower-is-better
+(PAI's own metric); the others are higher-is-better and are not algebraically
+tied to PAI's objective.  Trustworthiness and $K$-NN overlap share a
+neighbourhood-size parameter, fixed here at $K=10$ and ablated in
 Table~\ref{tab:knn_scale}.  Means, SDs, win counts
 and tests all use the same aggregation: one value per dataset, averaged over
 $k<d$.  $p$-values: dataset-level paired Wilcoxon signed-rank
@@ -251,10 +279,10 @@ $k<d$.  $p$-values: dataset-level paired Wilcoxon signed-rank
 \toprule
 Metric & PAI (mean $\pm$ SD) & NRS (mean $\pm$ SD) & PAI wins / 10 & $p$ \\
 \midrule"""]
-LABEL = {'wass_persist': r'\texttt{wass\_persist}',
-         'knn_overlap': r'\texttt{knn\_overlap}',
-         'trustworthiness': r'\texttt{trust}',
-         'cluster_ari': r'\texttt{cluster\_ari}'}
+LABEL = {'wass_persist': r'Wasserstein (diagrams)',
+         'knn_overlap': r'$K$-NN overlap',
+         'trustworthiness': r'Trustworthiness',
+         'cluster_ari': r'Cluster ARI'}
 for metric, lower_better, fmt in [('wass_persist', True, '.1f'),
                                   ('knn_overlap', False, '.3f'),
                                   ('trustworthiness', False, '.3f'),
@@ -276,8 +304,8 @@ body.append("\\bottomrule\n\\end{tabular}\n\\end{table}")
 write("tab_structure", "\n".join(body))
 
 # ── tab:iris_top ────────────────────────────────────────────────────────────
-ATTR = {0: r'\texttt{sepal\_length}', 1: r'\texttt{sepal\_width}',
-        2: r'\texttt{petal\_length}', 3: r'\texttt{petal\_width}'}
+ATTR = {0: r'sepal length', 1: r'sepal width',
+        2: r'petal length', 3: r'petal width'}
 body = [r"""\begin{table}[!htbp]
 \caption{Top-ranked attribute by method on Iris ($n=150$, $d=4$).  The
 top-1 attribute is the arg-max of mean importance over the five seed
@@ -308,15 +336,15 @@ local structure metrics.  Feature subsets are exactly those of
 Table~\ref{tab:structure}; only $K$ changes.  Each row aggregates over $k<d$
 per dataset, then compares PAI with NRS by dataset-level paired Wilcoxon
 signed-rank ($n=10$, two-sided); $\Delta = \mathrm{PAI}-\mathrm{NRS}$, and
-$^{*}$ marks $p<0.05$.  $K=10$ is the default used in
-Table~\ref{tab:structure} and throughout the literature.}
+$^{*}$ marks $p<0.05$.  $K=10$ is the value used in
+Table~\ref{tab:structure}.}
 \label{tab:knn_scale}
 \centering\small
 \begin{tabular}{ccccc}
 \toprule
 $K$ & PAI & NRS & $\Delta$ & PAI wins / 10 & $p$ \\
 \midrule
-\multicolumn{6}{l}{\emph{\texttt{knn\_overlap}} (higher is better)} \\"""]
+\multicolumn{6}{l}{\emph{$K$-NN overlap} (higher is better)} \\"""]
 body[0] = body[0].replace(r"\begin{tabular}{ccccc}", r"\begin{tabular}{cccccc}")
 
 
@@ -342,7 +370,7 @@ def panel(metric):
 
 body += panel("knn_overlap")
 body.append(r"\addlinespace")
-body.append(r"\multicolumn{6}{l}{\emph{\texttt{trust}} (higher is better)} \\")
+body.append(r"\multicolumn{6}{l}{\emph{Trustworthiness} (higher is better)} \\")
 body += panel("trustworthiness")
 body.append("\\bottomrule\n\\end{tabular}\n\\end{table}")
 write("tab_knn_scale", "\n".join(body))
@@ -361,8 +389,8 @@ N, NC = len(coding), len(corpus)
 body = [r"""\begin{table}[!htbp]
 \caption{Reporting practice in attribute-reduction papers read at full text.
 Each cell is a presence/absence judgement made from the experimental section
-only; the coding and the supporting quotation for every cell are released as
-\texttt{fulltext\_coding.csv}.  Column~2 covers all """ + str(N) + r""" papers
+only; the coding and the supporting quotation for every cell are released
+with the paper.  Column~2 covers all """ + str(N) + r""" papers
 coded; column~3 restricts to the """ + str(NC) + r""" that are members of this
 survey's Axis-1 corpus (Appendix~\ref{app:search}), i.e.\ """ + str(NC) + r"""
 of the """ + str(AXIS1_TOTAL) + r""" Axis-1 papers.}
@@ -388,17 +416,17 @@ body = [r"""\begin{table}[!htbp]
 \caption{Per-paper coding for the """ + str(NC) + r""" Axis-1 corpus papers read at
 full text.  B~= all-features baseline; D~= dispersion; S~= significance test;
 A~= own-hyperparameter ablation.  $\bullet$~= present, --~= absent.  The
-quotation supporting each judgement is in \texttt{fulltext\_coding.csv}.}
+quotation supporting each judgement is released with the paper.}
 \label{tab:practice_detail}
 \centering\small
-\begin{tabular}{llcccc}
+\begin{tabular}{lcccc}
 \toprule
-Log ID & Paper & B & D & S & A \\
+Paper & B & D & S & A \\
 \midrule"""]
 mark = lambda v: r"$\bullet$" if int(v) else "--"
 for r_ in corpus.sort_values("log_id").itertuples():
     name = f"{r_.first_author} {r_.year}"
-    body.append(f"{str(r_.log_id).replace(chr(95), chr(92)+chr(95))} & {name} & " +
+    body.append(f"{name} & " +
                 " & ".join(mark(getattr(r_, f)) for f in FN) + r" \\")
 body.append("\\bottomrule\n\\end{tabular}\n\\end{table}")
 write("tab_practice_detail", "\n".join(body))
@@ -447,35 +475,38 @@ def _posthoc():
 
 
 body = [r"""\begin{table}[!htbp]
-\caption{Mean margin over the all-features baseline across the ten datasets,
-under selection rules fixed in advance and under selection made after
-inspecting the results.  Each row is a mean of ten dataset-level margins in
-percentage points, with a $t$ interval on those ten values; the dataset is the
-unit of analysis, so the fold dependence of Table~\ref{tab:allfeats} does not
-enter.  $d$ is the number of attributes.}
+\caption{Each entry is the mean margin over the all-features baseline across
+the ten datasets, in percentage points, with a 95\% $t$ interval over the ten
+dataset values; the dataset is the unit of analysis.  $d$ is the number of
+attributes.}
 \label{tab:selection}
 \centering\small
-\setlength\tabcolsep{5pt}
-\begin{tabular}{lrc}
+\setlength\tabcolsep{4pt}
+\begin{tabular}{lclc}
 \toprule
-Selection rule & Margin (pp) & 95\% CI \\
-\midrule
-\multicolumn{3}{l}{\emph{$k$ fixed in advance, NRS}} \\"""]
-for frac, lab in [(0.25, r"$k=\lceil d/4 \rceil$"), (1/3, r"$k=\lceil d/3 \rceil$"),
-                  (0.5, r"$k=\lceil d/2 \rceil$"), (2/3, r"$k=\lceil 2d/3 \rceil$"),
-                  (0.75, r"$k=\lceil 3d/4 \rceil$")]:
-    m, lo, hi = _margin_ci(_fixed_k('nrs', frac))
-    body.append(f"\\quad {lab} & ${m:+.2f}$ & $[{lo:+.2f},\\,{hi:+.2f}]$ \\\\")
-body.append(r"\addlinespace")
-body.append(r"\multicolumn{3}{l}{\emph{$k=\lceil d/2 \rceil$ fixed in advance, other selectors}} \\")
-for meth, lab in [('relieff', 'ReliefF'), ('mutual_info', 'Mutual information'),
-                  ('pai', 'PAI'), ('variance', 'Variance')]:
-    m, lo, hi = _margin_ci(_fixed_k(meth, 0.5))
-    body.append(f"\\quad {lab} & ${m:+.2f}$ & $[{lo:+.2f},\\,{hi:+.2f}]$ \\\\")
-body.append(r"\addlinespace")
-body.append(r"\multicolumn{3}{l}{\emph{chosen after inspecting the results}} \\")
-m, lo, hi = _margin_ci(_posthoc())
-body.append(f"\\quad best $(\\text{{method}},k)$ & $\\mathbf{{{m:+.2f}}}$ & $[{lo:+.2f},\\,{hi:+.2f}]$ \\\\")
+\multicolumn{2}{l}{\emph{NRS, $k$ fixed in advance}} &
+\multicolumn{2}{l}{\emph{Other selectors, $k=\lceil d/2 \rceil$ fixed in advance}} \\
+\midrule"""]
+def _cell(vals, bold=False):
+    m, lo, hi = _margin_ci(vals)
+    mm = f"\\mathbf{{{m:+.2f}}}" if bold else f"{m:+.2f}"
+    return f"${mm}$ $[{lo:+.2f},\\,{hi:+.2f}]$"
+left = [(r"$k=\lceil d/4 \rceil$", 0.25), (r"$k=\lceil d/3 \rceil$", 1/3),
+        (r"$k=\lceil d/2 \rceil$", 0.5), (r"$k=\lceil 2d/3 \rceil$", 2/3),
+        (r"$k=\lceil 3d/4 \rceil$", 0.75)]
+right = [('ReliefF', 'relieff'), ('Mutual information', 'mutual_info'),
+         ('PAI', 'pai'), ('Variance', 'variance')]
+for i, (llab, frac) in enumerate(left):
+    lc = _cell(_fixed_k('nrs', frac))
+    if i < len(right):
+        rlab, meth = right[i]
+        rc = f"{rlab} & {_cell(_fixed_k(meth, 0.5))}"
+    else:
+        rc = "&"
+    body.append(f"{llab} & {lc} & {rc} \\\\")
+body.append(r"\midrule")
+body.append(r"\multicolumn{3}{l}{\emph{Chosen after inspecting the results:} best $(\text{method},k)$} & "
+            + _cell(_posthoc(), bold=True) + r" \\")
 body.append("\\bottomrule\n\\end{tabular}\n\\end{table}")
 write("tab_selection", "\n".join(body))
 
