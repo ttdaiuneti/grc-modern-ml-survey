@@ -50,22 +50,22 @@ Coding rules as in Appendix A (presence only).
 - Ablation: results at more than one value of a hyperparameter of the paper's own method; grid tuning with only the best setting reported does not count.
 
 ## Confirmation by the coder (T.D.T.)
-For each cell: open the page given in the first table above, check it against the Appendix A rule, and write Y (confirm) or N (disagree, with a note). An N is settled by re-reading the page together; any change is then made in both copies of `fulltext_coding.csv` and the tables are regenerated.
+T.D.T. checked each cell against the page given in the first table above and the Appendix A rule, and confirmed all thirteen on 30 October 2026. No code changed.
 
 | # | Cell | Item | Now coded | T.D.T. (Y/N) | Date | Note |
 |---|---|---|---|---|---|---|
-| 1 | FT_01 Xia 2020 TKDE | baseline | 1 | | | |
-| 2 | FT_01 Xia 2020 TKDE | dispersion | 1 | | | |
-| 3 | FT_02 Xia 2025 TNNLS (GBRS) | dispersion | 1 | | | |
-| 4 | FT_04 Ji 2023 INS | ablation | 1 | | | |
-| 5 | FT_06 Li 2023 IJAR | test | 1 | | | |
-| 6 | FT_07 Xu 2022 CIS | baseline | 1 | | | |
-| 7 | FT_10 Xia 2025 TFS | dispersion | 1 | | | |
-| 8 | FT_11 Ding 2021 TETCI | dispersion | 1 | | | |
-| 9 | FT_12 Xie 2024 TETCI | dispersion | 1 | | | |
-| 10 | FT_19 Sun 2024 TFS | dispersion | 1 | | | |
-| 11 | FT_21 Xia 2024 TFS | baseline | 1 | | | |
-| 12 | FT_18 Xia 2024 TNNLS | ablation | 0 | | | |
-| 13 | FT_16 Sun 2025 EAAI | baseline | 1 | | | |
+| 1 | FT_01 Xia 2020 TKDE | baseline | 1 | Y | 2026-10-30 | |
+| 2 | FT_01 Xia 2020 TKDE | dispersion | 1 | Y | 2026-10-30 | |
+| 3 | FT_02 Xia 2025 TNNLS (GBRS) | dispersion | 1 | Y | 2026-10-30 | |
+| 4 | FT_04 Ji 2023 INS | ablation | 1 | Y | 2026-10-30 | |
+| 5 | FT_06 Li 2023 IJAR | test | 1 | Y | 2026-10-30 | |
+| 6 | FT_07 Xu 2022 CIS | baseline | 1 | Y | 2026-10-30 | |
+| 7 | FT_10 Xia 2025 TFS | dispersion | 1 | Y | 2026-10-30 | |
+| 8 | FT_11 Ding 2021 TETCI | dispersion | 1 | Y | 2026-10-30 | |
+| 9 | FT_12 Xie 2024 TETCI | dispersion | 1 | Y | 2026-10-30 | |
+| 10 | FT_19 Sun 2024 TFS | dispersion | 1 | Y | 2026-10-30 | |
+| 11 | FT_21 Xia 2024 TFS | baseline | 1 | Y | 2026-10-30 | |
+| 12 | FT_18 Xia 2024 TNNLS | ablation | 0 | Y | 2026-10-30 | |
+| 13 | FT_16 Sun 2025 EAAI | baseline | 1 | Y | 2026-10-30 | |
 
 Cell 13 was corrected earlier from the second coder's evidence (second_coding/reconciliation.md, item 1); its source is Sec. 5.2 and Table 4 of the paper.
