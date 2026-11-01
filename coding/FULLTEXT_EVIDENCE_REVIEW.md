@@ -4,7 +4,7 @@ Date: 2026-09-10. Target: the updated AIR manuscript and its 13-record
 cross-framework coding set. All seven requested PDFs are present; together
 with the six existing papers, no PDF is missing from this set.
 
-This is a focused assistant-assisted audit of contribution statements,
+This is a focused audit of contribution statements,
 selected definitions/algorithms and relevant results, not an exhaustive
 verification of every theorem or a reproduction of experiments. Page numbers
 below refer to printed article pages unless explicitly described as PDF pages.

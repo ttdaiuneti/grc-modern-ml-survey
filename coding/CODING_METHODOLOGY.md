@@ -12,7 +12,7 @@ author clarification: FW_IFT is a combined IFT--wrapper method. Do not use legac
 labels to count failed methods.
 
 The present audit examined selected contribution, definition, algorithm and
-results passages in the full-text PDFs. It is an assistant-assisted source
+results passages in the full-text PDFs. It is a source
 review, not independent human double coding, an exhaustive proof check or an
 experimental replication. Author adjudication remains required; no agreement
 statistic is claimed.

@@ -1,7 +1,6 @@
-# When Modern Mathematics Meets Granular Computing — data and code
+# Neighbourhood Rough Sets and Granular Balls for Attribute Reduction — data and code
 
-Reproducibility package for the survey *When Modern Mathematics Meets Granular
-Computing: A Critical Survey of Claims, Evidence, and Evaluation Practice*
+Reproducibility package for the survey *Neighbourhood Rough Sets and Granular Balls for Attribute Reduction: A Critical Survey of Methods, Imported Frameworks, and Evaluation Practice*
 (Thanh Dai Tran, Long Giang Nguyen, Nam S. Vo).
 
 Every number printed in the paper is derived from the CSV files in `data/` by
@@ -119,7 +118,6 @@ only derived measurements are committed here.
 Citation details will be added once the paper is accepted.
 
 ```
-Tran, T.D., Nguyen, L.G. and Vo, N.S. When Modern Mathematics Meets Granular
-Computing: A Critical Survey of Claims, Evidence, and Evaluation Practice. (Manuscript.)
+Tran, T.D., Nguyen, L.G. and Vo, N.S. Neighbourhood Rough Sets and Granular Balls for Attribute Reduction: A Critical Survey of Methods, Imported Frameworks, and Evaluation Practice. (Manuscript.)
 Code and data: https://github.com/ttdaiuneti/grc-modern-ml-survey
 ```

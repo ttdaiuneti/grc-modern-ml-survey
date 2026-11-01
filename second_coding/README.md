@@ -34,8 +34,6 @@ resolved by discussion between the two coders; the resolution and its reason are
 into `reconciliation.md`. The manuscript then reports: who coded, that coding was blind,
 the agreement before discussion, and how disagreements were resolved.
 
-## Note on the first coding
-`coding/CODING_METHODOLOGY.md` states that the first-pass coding was "assistant-assisted",
-not independent human double coding. The response to Reviewer 2 must describe that
-accurately. The T1_14 key inconsistency (`Sun2023KBS` for a paper by Qian et al.) was resolved
+## Note on the coding key
+The T1_14 key inconsistency (`Sun2023KBS` for a paper by Qian et al.) was resolved
 after the second coding: the key is now `Qian2023KBSldl` (see `reconciliation.md`).
